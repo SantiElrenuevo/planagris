@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Agricultura</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; background: #f0f2f5; color: #333; font-size: 13px; }
+.header { background: #1a5276; color: white; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+.header h1 { font-size: 18px; font-weight: 600; }
+.header .sub { font-size: 12px; opacity: 0.75; margin-top: 2px; }
+.upload-btn { background: #2e86c1; border: none; color: white; padding: 7px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+.upload-btn:hover { background: #1a6fa0; }
+#uploadScreen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; }
+.upload-card { background: white; border-radius: 12px; padding: 48px; text-align: center; box-shadow: 0 2px 12px rgba(0,0,0,0.1); max-width: 460px; width: 100%; }
+.upload-icon { font-size: 52px; margin-bottom: 14px; }
+.upload-card h2 { font-size: 20px; color: #1a5276; margin-bottom: 8px; }
+.upload-card p { color: #666; font-size: 13px; margin-bottom: 22px; line-height: 1.6; }
+.upload-area { border: 2px dashed #2e86c1; border-radius: 8px; padding: 28px; cursor: pointer; transition: background 0.2s; }
+.upload-area:hover { background: #eaf4fb; }
+.upload-area input { display: none; }
+.upload-area label { cursor: pointer; color: #2e86c1; font-weight: 600; font-size: 14px; }
+#dashboard { display: none; }
+.tabs { background: white; border-bottom: 2px solid #e0e0e0; display: flex; overflow-x: auto; padding: 0 16px; }
+.tab { padding: 11px 18px; cursor: pointer; font-size: 13px; color: #666; border-bottom: 3px solid transparent; white-space: nowrap; transition: all 0.2s; }
+.tab:hover { color: #1a5276; }
+.tab.active { color: #1a5276; border-bottom-color: #1a5276; font-weight: 600; }
+.tab-content { display: none; padding: 18px 20px; }
+.tab-content.active { display: block; }
+
+/* FILTROS */
+.filtros { background: white; border-radius: 8px; padding: 14px 18px; margin-bottom: 14px; display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-start; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+.filtros-titulo { font-size: 12px; font-weight: 700; color: #1a5276; align-self: center; }
+.fg { display: flex; flex-direction: column; gap: 3px; }
+.fg label { font-size: 10px; color: #888; font-weight: 700; text-transform: uppercase; }
+.fg select { border: 1px solid #ddd; border-radius: 6px; padding: 5px 8px; font-size: 12px; min-width: 130px; }
+.fg .hint { font-size: 10px; color: #bbb; }
+
+/* CHECKBOXES FILTRO */
+.check-group { display: flex; flex-wrap: wrap; gap: 6px; max-width: 600px; }
+.check-item { display: flex; align-items: center; gap: 4px; background: #f4f6f8; border: 1px solid #ddd; border-radius: 16px; padding: 3px 10px; cursor: pointer; font-size: 12px; transition: all 0.15s; user-select: none; }
+.check-item:hover { border-color: #2e86c1; }
+.check-item.checked { background: #2e86c1; color: white; border-color: #2e86c1; }
+.check-item input { display: none; }
+.check-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.btn-todos { font-size: 11px; color: #2e86c1; cursor: pointer; padding: 3px 8px; border: 1px solid #2e86c1; border-radius: 12px; background: white; }
+.btn-todos:hover { background: #eaf4fb; }
+
+/* CARDS */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.card { background: white; border-radius: 8px; padding: 15px 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+.card .lbl { font-size: 10px; color: #999; margin-bottom: 4px; text-transform: uppercase; font-weight: 700; }
+.card .val { font-size: 20px; font-weight: 700; color: #1a5276; }
+.card .sub { font-size: 10px; color: #bbb; margin-top: 2px; }
+.card.alerta .val { color: #e74c3c; }
+.card.verde .val { color: #27ae60; }
+.card.naranja .val { color: #e67e22; }
+
+/* TABLAS */
+.tabla-wrap { background: white; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); overflow: hidden; margin-bottom: 14px; }
+.tt { padding: 11px 16px; font-size: 13px; font-weight: 700; color: #1a5276; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
+.tt span { font-size: 10px; color: #bbb; font-weight: 400; }
+.ts { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th { background: #f4f6f8; padding: 8px 11px; text-align: left; font-size: 11px; color: #555; font-weight: 700; border-bottom: 1px solid #e8e8e8; white-space: nowrap; cursor: pointer; user-select: none; }
+th:hover { background: #e8ecf0; }
+th.sort-asc::after { content: ' ▲'; font-size: 9px; }
+th.sort-desc::after { content: ' ▼'; font-size: 9px; }
+td { padding: 7px 11px; border-bottom: 1px solid #f5f5f5; white-space: nowrap; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #fafbfc; }
+.badge { display: inline-block; padding: 2px 6px; border-radius: 8px; font-size: 10px; font-weight: 700; }
+.badge.rojo { background: #fdecea; color: #c0392b; }
+.badge.naranja { background: #fef3e2; color: #e67e22; }
+.badge.verde { background: #eafaf1; color: #27ae60; }
+.badge.azul { background: #eaf4fb; color: #1a5276; }
+.badge.supervenc { background: #c0392b; color: white; }
+
+/* CHARTS */
+.chart-wrap { background: white; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); padding: 16px; margin-bottom: 14px; }
+.ct { font-size: 13px; font-weight: 700; color: #1a5276; margin-bottom: 12px; }
+.cg { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+
+/* ALERTAS */
+.ag { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 9px; margin-bottom: 14px; }
+.ac { background: white; border-radius: 8px; padding: 12px 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); border-left: 4px solid #ddd; cursor: pointer; transition: all 0.15s; }
+.ac:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0,0,0,0.12); }
+.ac.con { border-left-color: #e74c3c; }
+.ac.sup { border-left-color: #8e0000; }
+.ac.sin { border-left-color: #27ae60; }
+.ac .ae { font-size: 11px; font-weight: 700; color: #333; margin-bottom: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ac .an { font-size: 18px; font-weight: 700; }
+.ac.con .an { color: #e74c3c; }
+.ac.sup .an { color: #8e0000; }
+.ac.sin .an { color: #27ae60; }
+.ac .as { font-size: 10px; color: #999; margin-top: 1px; }
+
+/* ANÁLISIS CHAT */
+.chat-msg { display:flex; flex-direction:column; max-width:85%; }
+.chat-msg.user { align-self:flex-end; }
+.chat-msg.bot { align-self:flex-start; }
+.chat-burbuja { padding:10px 14px; border-radius:12px; font-size:13px; line-height:1.6; }
+.chat-msg.user .chat-burbuja { background:#1a5276; color:white; border-bottom-right-radius:3px; }
+.chat-msg.bot .chat-burbuja { background:#f4f6f8; color:#333; border-bottom-left-radius:3px; }
+.chat-msg.bot.typing .chat-burbuja { color:#999; font-style:italic; }
+.analisis-card { background:white; border-radius:8px; padding:16px 18px; box-shadow:0 1px 4px rgba(0,0,0,0.08); border-left:4px solid #2e86c1; }
+.analisis-card .ac-titulo { font-size:11px; font-weight:700; color:#888; text-transform:uppercase; margin-bottom:6px; }
+.analisis-card .ac-valor { font-size:15px; font-weight:700; color:#1a5276; margin-bottom:4px; }
+.analisis-card .ac-detalle { font-size:12px; color:#666; line-height:1.5; }
+.analisis-card.verde { border-left-color:#27ae60; }
+.analisis-card.verde .ac-valor { color:#27ae60; }
+.analisis-card.naranja { border-left-color:#e67e22; }
+.analisis-card.naranja .ac-valor { color:#e67e22; }
+.analisis-card.rojo { border-left-color:#e74c3c; }
+.analisis-card.rojo .ac-valor { color:#e74c3c; }
+.spinner { width: 36px; height: 36px; border: 4px solid #ddd; border-top-color: #1a5276; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 700px) { .cg { grid-template-columns: 1fr; } .cards { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<div id="loading" style="display:none"><div class="spinner"></div><p style="color:#666;font-size:13px">Procesando datos...</p></div>
+<div class="header">
+  <div><h1>🌾 Dashboard Agricultura</h1><div class="sub" id="hSub">Sin datos cargados</div></div>
+  <button class="upload-btn" onclick="document.getElementById('fi2').click()">↑ Nuevo archivo</button>
+  <input type="file" id="fi2" accept=".xlsx,.xlsm" style="display:none" onchange="cargarArchivo(this)">
+</div>
+
+<div id="uploadScreen">
+  <div class="upload-card">
+    <div class="upload-icon">📊</div>
+    <h2>Dashboard Agricultura</h2>
+    <p id="driveStatus" style="color:#666">⏳ Cargando datos desde Google Drive...</p>
+    <div id="driveProgress" style="margin:18px 0;background:#eaf4fb;border-radius:8px;height:8px;overflow:hidden">
+      <div id="driveBar" style="height:100%;background:#2e86c1;width:0%;transition:width 0.4s"></div>
+    </div>
+    <p style="font-size:11px;color:#bbb" id="driveSubStatus">Conectando con Google Drive</p>
+    <hr style="margin:22px 0;border:none;border-top:1px solid #eee">
+    <p style="font-size:11px;color:#aaa;margin-bottom:10px">O cargá manualmente:</p>
+    <div class="upload-area">
+      <input type="file" id="fi1" accept=".xlsx,.xlsm" onchange="cargarArchivo(this)">
+      <label for="fi1">📂 Seleccionar archivo consolidado<br><small style="font-weight:400;color:#aaa;font-size:11px">Consolidado_Agricultura_25-26.xlsx</small></label>
+    </div>
+  </div>
+</div>
+
+<div id="dashboard">
+  <div class="tabs">
+    <div class="tab active" onclick="mt('superficies',this)">🌱 Superficies</div>
+    <div class="tab" onclick="mt('costos',this)">💰 Costos x Ha</div>
+    <div class="tab" onclick="mt('labores',this)">🚜 Precios Labores</div>
+    <div class="tab" onclick="mt('insumos',this)">🧪 Precios Insumos</div>
+    <div class="tab" onclick="mt('compras',this)">📦 Compras</div>
+    <div class="tab" onclick="mt('alertas',this)">⚠️ Alertas</div>
+    <div class="tab" onclick="mt('analisis',this)">🤖 Análisis</div>
+  </div>
+
+  <!-- SUPERFICIES -->
+  <div id="tab-superficies" class="tab-content active">
+    <div class="filtros">
+      <span class="filtros-titulo">Actividad</span>
+      <div class="fg">
+        <div style="display:flex;gap:6px">
+          <button class="btn-todos" onclick="setActSup('todas')" id="btnActTodas" style="background:#1a5276;color:white">Todas</button>
+          <button class="btn-todos" onclick="setActSup('agri')" id="btnActAgri">Agricultura</button>
+          <button class="btn-todos" onclick="setActSup('gan')" id="btnActGan">Ganadería</button>
+        </div>
+      </div>
+    </div>
+    <div class="filtros">
+      <span class="filtros-titulo">Empresas</span>
+      <div class="fg">
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+          <button class="btn-todos" onclick="toggleTodos('supEmp',true)">Todas</button>
+          <button class="btn-todos" onclick="toggleTodos('supEmp',false)">Ninguna</button>
+        </div>
+        <div class="check-group" id="ckSupEmp"></div>
+      </div>
+    </div>
+    <div class="filtros">
+      <span class="filtros-titulo">Cultivos</span>
+      <div class="fg">
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+          <button class="btn-todos" onclick="toggleTodos('supCult',true)">Todos</button>
+          <button class="btn-todos" onclick="toggleTodos('supCult',false)">Ninguno</button>
+        </div>
+        <div class="check-group" id="ckSupCult"></div>
+      </div>
+    </div>
+    <div class="cards" id="cSup"></div>
+    <div class="cg">
+      <div class="chart-wrap"><div class="ct">Hectáreas por cultivo</div><canvas id="chSupC"></canvas></div>
+      <div class="chart-wrap"><div class="ct">Rotación por empresa (%)</div><canvas id="chRot"></canvas></div>
+    </div>
+    <div class="tabla-wrap"><div class="tt">Superficie por empresa y cultivo <span>Filas SGD / SFD — click columna para ordenar</span></div><div class="ts"><table id="tSup"></table></div></div>
+  </div>
+
+  <!-- RESUMEN -->
+  <div id="tab-resumen" class="tab-content">
+    <div class="cards" id="cRes"></div>
+    <div class="cg">
+      <div class="chart-wrap"><div class="ct">Inversión total por empresa (U$S)</div><canvas id="chResE"></canvas></div>
+      <div class="chart-wrap"><div class="ct">Inversión por tipo</div><canvas id="chResT"></canvas></div>
+    </div>
+    <div class="tabla-wrap"><div class="tt">Resumen por empresa <span>click columna para ordenar</span></div><div class="ts"><table id="tRes"></table></div></div>
+  </div>
+
+  <!-- COSTOS -->
+  <div id="tab-costos" class="tab-content">
+    <!-- Sub-tabs actividad -->
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button onclick="setCostAct('agri',this)" id="btnCostAgri" style="background:#1a5276;color:white;border:none;border-radius:6px;padding:7px 18px;cursor:pointer;font-size:13px;font-weight:600">🌾 Agricultura</button>
+      <button onclick="setCostAct('gan',this)" id="btnCostGan" style="background:#f4f6f8;color:#666;border:1px solid #ddd;border-radius:6px;padding:7px 18px;cursor:pointer;font-size:13px">🐄 Ganadería</button>
+    </div>
+    <div class="filtros">
+      <span class="filtros-titulo">Empresas</span>
+      <div class="fg">
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+          <button class="btn-todos" onclick="toggleTodos('costEmp',true)">Todas</button>
+          <button class="btn-todos" onclick="toggleTodos('costEmp',false)">Ninguna</button>
+        </div>
+        <div class="check-group" id="ckCostEmp"></div>
+      </div>
+      <div class="fg" style="align-self:center;margin-left:8px">
+        <label>Cultivo</label>
+        <select id="fCC" onchange="rCost()" style="border:1px solid #ddd;border-radius:6px;padding:5px 8px;font-size:12px;min-width:130px"><option value="">Todos</option></select>
+      </div>
+    </div>
+    <div class="cards" id="cCost"></div>
+    <div class="chart-wrap"><div class="ct" id="ctCostTitulo">U$S/ha por empresa y cultivo — Agricultura</div><canvas id="chCost" height="90"></canvas></div>
+    <div class="tabla-wrap"><div class="tt">Costo por hectárea — desglose por tipo <span>click columna para ordenar</span></div><div class="ts"><table id="tCost"></table></div></div>
+  </div>
+
+  <!-- LABORES -->
+  <div id="tab-labores" class="tab-content">
+    <div class="filtros">
+      <span class="filtros-titulo">Empresas</span>
+      <div class="fg">
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+          <button class="btn-todos" onclick="toggleTodos('labEmp',true)">Todas</button>
+          <button class="btn-todos" onclick="toggleTodos('labEmp',false)">Ninguna</button>
+        </div>
+        <div class="check-group" id="ckLabEmp"></div>
+      </div>
+      <div class="fg" style="align-self:center;margin-left:8px">
+        <label>Labor</label>
+        <select id="fLL" onchange="rLab()" style="border:1px solid #ddd;border-radius:6px;padding:5px 8px;font-size:12px;min-width:130px"><option value="">Todas</option></select>
+      </div>
+    </div>
+    <div class="chart-wrap"><div class="ct">Precio ponderado por labor y empresa (U$S/ha) — de mayor a menor</div><canvas id="chLab"></canvas></div>
+    <div class="tabla-wrap"><div class="tt">Comparativo precio por empresa <span>U$S totales / hectáreas — CAT 1 R</span></div><div class="ts"><table id="tLab"></table></div></div>
+  </div>
+
+  <!-- INSUMOS -->
+  <div id="tab-insumos" class="tab-content">
+    <div class="filtros">
+      <span class="filtros-titulo">Filtros</span>
+      <div class="fg"><label>Tipo</label><select id="fIT" onchange="rIns()"><option value="">Todos</option></select></div>
+      <div class="fg">
+        <label>Producto</label>
+        <select id="fIP" multiple onchange="rIns()" style="border:1px solid #ddd;border-radius:6px;padding:5px 8px;font-size:12px;min-width:200px;min-height:80px"></select>
+        <div class="hint">Ctrl+click para varios</div>
+      </div>
+    </div>
+    <div class="tabla-wrap"><div class="tt">Precios de insumos <span>CAT 3 — Compras</span></div><div class="ts"><table id="tIns"></table></div></div>
+  </div>
+
+  <!-- COMPRAS -->
+  <div id="tab-compras" class="tab-content">
+    <div class="filtros">
+      <span class="filtros-titulo">Filtros</span>
+      <div class="fg"><label>Tipo</label><select id="fCompT" onchange="rComp()"><option value="">Todos</option></select></div>
+      <div class="fg">
+        <label>Producto</label>
+        <select id="fCompP" multiple onchange="rComp()" style="border:1px solid #ddd;border-radius:6px;padding:5px 8px;font-size:12px;min-width:200px;min-height:80px"></select>
+        <div class="hint">Ctrl+click para varios</div>
+      </div>
+    </div>
+    <div class="tabla-wrap"><div class="tt">Necesidades de compra <span>Usado + Presupuestado vs Comprado</span></div><div class="ts"><table id="tComp"></table></div></div>
+  </div>
+
+  <!-- ALERTAS -->
+  <div id="tab-alertas" class="tab-content">
+    <div class="tt" style="background:white;border-radius:8px;margin-bottom:12px;padding:11px 16px;box-shadow:0 1px 4px rgba(0,0,0,0.08)">
+      Tablero por empresa — click para ver detalle
+      <span>🟢 Sin alertas &nbsp;🔴 Vencido (+30 días) &nbsp;🔴 Supervencido (+60 días, borde oscuro)</span>
+    </div>
+    <div class="ag" id="gAlt"></div>
+    <div class="filtros">
+      <span class="filtros-titulo">Detalle</span>
+      <div class="fg"><label>Empresa</label><select id="fAE" onchange="rAltD()"><option value="">Seleccionar</option></select></div>
+      <div class="fg"><label>Tipo</label>
+        <select id="fAT" onchange="rAltD()">
+          <option value="">Todas</option>
+          <option value="supervencido">Supervencidos (+60 días)</option>
+          <option value="vencido">Vencidos (+30 días)</option>
+          <option value="error">Errores de datos</option>
+        </select>
+      </div>
+    </div>
+    <div class="tabla-wrap"><div class="tt">Detalle <span id="altSub">Seleccioná una empresa</span></div><div class="ts"><table id="tAlt"></table></div></div>
+  </div>
+
+  <!-- ANÁLISIS -->
+  <div id="tab-analisis" class="tab-content">
+    <div id="analisisAuto"></div>
+  </div>
+
+</div>
+
+<script>
+// ── COLORES POR CULTIVO ──
+const CULT_COLOR = {
+  'T':'#F5E642', 'T-R':'#F5E642',
+  'CB':'#C8A400',
+  'M':'#E87C1A', 'MC':'#E87C1A', 'MDA':'#E87C1A', 'ML':'#E87C1A', 'MP':'#E87C1A', 'M-R':'#E87C1A',
+  'MS':'#E87C1A',
+  'MT':'#C0392B',
+  'G':'#8B5E3C', 'GHO':'#8B5E3C',
+  'S':'#1A7A2E', 'S-R':'#1A7A2E',
+  'SDA':'#7DBF6E', 'SDA-R':'#7DBF6E'
+};
+const OTROS_COLORES = ['#2e86c1','#8e44ad','#1abc9c','#2980b9','#16a085','#d35400','#7f8c8d','#c0392b','#2471a3','#117a65','#6c3483','#0e6655'];
+
+function cultColor(c, idx=0) {
+  return CULT_COLOR[c] || OTROS_COLORES[idx % OTROS_COLORES.length];
+}
+
+// ── ACTIVIDADES ──
+const ACT = {
+  invierno: ['ARV','CB','CC','COB','CS','T','TTC','T-R'],
+  verano:   ['G','GHO','M','M-R','MN','MT','S','S-R'],
+  segunda:  ['MDA','SDA','SDA-R'],
+  ganaderia:['AV','CE','MC','ML','MP','PI','PL I','PL P','SF','TT','VI','VI L','VV','VV L','RG','FEST','PROM','PROMO']
+};
+function actividadCult(c) {
+  if (!c) return 'otras';
+  if (ACT.invierno.includes(c)) return 'agri';
+  if (ACT.verano.includes(c)) return 'agri';
+  if (ACT.segunda.includes(c)) return 'segunda';
+  if (ACT.ganaderia.includes(c)) return 'gan';
+  return 'otras';
+}
+function esAgri(c) { return ACT.invierno.includes(c)||ACT.verano.includes(c)||ACT.segunda.includes(c); }
+function esGan(c) { return ACT.ganaderia.includes(c); }
+// Superficie agrícola real = invierno + verano (sin segunda)
+function supAgriReal(c) { return ACT.invierno.includes(c)||ACT.verano.includes(c); }
+
+let _actSup = 'todas';
+let _actCost = 'agri';
+
+const CV={'ARV':'Arveja','AV':'Avena','CB':'Cebada','CC':'Cob.','CE':'Centeno','COB':'Cob.','CS':'C.Servicio','FEST':'Festuca','G':'Girasol','GHO':'G.Alto Oleico','M':'Maíz','MC':'M.Carne','MDA':'Maíz 2da','ML':'M.Leche','MN':'Maní','MP':'M.Pastoreo','M-R':'M.Riego','MS':'M.Silo','MT':'M.Tardío','PI':'P.Impl.','PL I':'P.Impl.','PL P':'P.Prod.','PP':'P.Prod.','PROM':'Prom.','PROMO':'Prom.','RG':'Raigrás','S':'Soja','SDA':'Soja 2da','SDA-R':'Soja 2da R.','SF':'S.Forrajero','S-R':'Soja Riego','T':'Trigo','T-R':'Trigo Riego','TT':'Triticale','TTC':'Triticale','VI':'V.Inv.','VI L':'V.Inv.L','VV':'V.Ver.','VV L':'V.Ver.L'};
+const nc=c=>CV[c]||c||'-';
+const f$=n=>n==null||isNaN(n)?'-':'$'+Math.round(n).toLocaleString('es-AR');
+const fu=n=>(!n&&n!==0)||isNaN(n)?'-':'U$S '+parseFloat(n).toFixed(1).replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+const fn=n=>n==null||isNaN(n)?'-':Math.round(n).toLocaleString('es-AR');
+const fv=n=>parseFloat(n)||0;
+
+let D=[],CH={},SS={};
+
+// ── CHECKBOXES ──
+const CK_STATE = {};
+function buildCheckGroup(containerId, groupId, items, colorFn) {
+  CK_STATE[groupId] = new Set(items);
+  const el = document.getElementById(containerId);
+  el.innerHTML = items.map((v,i) => {
+    const color = colorFn ? colorFn(v, i) : '#2e86c1';
+    return `<label class="check-item checked" data-group="${groupId}" data-val="${v}" onclick="toggleCk(this,'${groupId}')">
+      <span class="check-dot" style="background:${color}"></span>${v}
+    </label>`;
+  }).join('');
+}
+function toggleCk(el, group) {
+  el.classList.toggle('checked');
+  const v = el.dataset.val;
+  if (el.classList.contains('checked')) CK_STATE[group].add(v);
+  else CK_STATE[group].delete(v);
+  if (group === 'supEmp' || group === 'supCult') rSup();
+  if (group === 'costEmp') rCost();
+  if (group === 'labEmp') rLab();
+}
+function toggleTodos(group, sel) {
+  const container = document.querySelector(`[id^="ck"][id*="${group.replace('Emp','Emp').replace('Cult','Cult')}"]`) ||
+    document.getElementById('ck' + group.charAt(0).toUpperCase() + group.slice(1));
+  if (!container) return;
+  container.querySelectorAll('.check-item').forEach(el => {
+    el.classList.toggle('checked', sel);
+    const v = el.dataset.val;
+    if (sel) CK_STATE[group].add(v); else CK_STATE[group].delete(v);
+  });
+  if (group === 'supEmp' || group === 'supCult') rSup();
+  if (group === 'costEmp') rCost();
+  if (group === 'labEmp') rLab();
+}
+function getChecked(group) { return [...(CK_STATE[group]||new Set())]; }
+
+function mt(id,el){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active'); el.classList.add('active');
+}
+
+function cargarArchivo(inp){
+  const f=inp.files[0]; if(!f) return;
+  document.getElementById('loading').style.display='flex';
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      let sn=wb.SheetNames.find(s=>s.toUpperCase()==='BASE')||wb.SheetNames.find(s=>s.toUpperCase().includes('BASE'))||wb.SheetNames[0];
+      const raw=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:null});
+      let hr=-1;
+      for(let i=0;i<Math.min(10,raw.length);i++){if(raw[i]&&raw[i].includes('CAT')&&raw[i].includes('EMPRESA')){hr=i;break;}}
+      if(hr===-1){alert('Estructura no encontrada.');document.getElementById('loading').style.display='none';return;}
+      const H=raw[hr].map(h=>h?String(h).trim():'');
+      D=[];
+      for(let i=hr+2;i<raw.length;i++){
+        const row=raw[i]; if(!row) continue;
+        const o={}; H.forEach((h,idx)=>{o[h]=row[idx];});
+        if(!o['EMPRESA']) continue;
+        ['$ TOT','U$S TOT','U$S/UNIDAD','TOTAL U$','$/UNIDAD','TOT UNIDADES','SUP'].forEach(k=>{
+          if((typeof o[k]==='string'&&o[k].startsWith('#'))||o[k] instanceof Error) o[k]=null;
+        });
+        o.CAT=parseInt(o.CAT)||0;
+        o._e=String(o['Empresa_Archivo']||o['EMPRESA']||'').trim();
+        o._u=fv(o['U$S TOT']); o._a=fv(o['$ TOT']); o._s=fv(o['SUP']); o._q=fv(o['TOT UNIDADES']); o._au=fv(o['$/UNIDAD']);
+        o.FJ=o['FECHA'] instanceof Date?o['FECHA']:(o['FECHA']?new Date(o['FECHA']):null);
+        D.push(o);
+      }
+      const ej=D.find(d=>d['Ejercicio'])?.['Ejercicio']||'';
+      document.getElementById('hSub').textContent=(ej?'Ejercicio '+ej+' — ':'')+D.length.toLocaleString()+' registros';
+
+      // Mostrar dashboard antes de renderizar para que sea visible aunque alguna función falle
+      document.getElementById('uploadScreen').style.display='none';
+      document.getElementById('dashboard').style.display='block';
+      document.getElementById('loading').style.display='none';
+
+      poblar();
+      try{rSup();}catch(e){console.error('rSup',e);}
+      try{rRes();}catch(e){console.error('rRes',e);}
+      try{rCost();}catch(e){console.error('rCost',e);}
+      try{rLab();}catch(e){console.error('rLab',e);}
+      try{rIns();}catch(e){console.error('rIns',e);}
+      try{rComp();}catch(e){console.error('rComp',e);}
+      try{rAlt();}catch(e){console.error('rAlt',e);}
+      try{rAnalisis();}catch(e){console.error('rAnalisis',e);}
+
+    }catch(err){
+      alert('Error al procesar el archivo: '+err.message);
+      document.getElementById('loading').style.display='none';
+    }
+  };
+  r.readAsArrayBuffer(f);
+}
+
+function poblar(){
+  const E=[...new Set(D.map(d=>d._e).filter(Boolean))].sort();
+  const C=[...new Set(D.filter(d=>d.CAT===1).map(d=>d['CULTIVO']).filter(Boolean))].sort();
+  const CS=[...new Set(D.filter(d=>d.CAT===1&&['SGD','SFD'].includes(d['PRODUCT/LABOR'])).map(d=>d['CULTIVO']).filter(Boolean))].sort();
+  // Solo labores que tienen al menos un registro realizado con cantidad > 0
+  const L=[...new Set(D.filter(d=>d.CAT===1&&['LABRANZA','COSECHA'].includes(d['TIPO'])&&d['R/P']==='R'&&d._s>0).map(d=>d['PRODUCT/LABOR']).filter(Boolean))].sort();
+  const T=[...new Set(D.filter(d=>d.CAT===1).map(d=>d['TIPO']).filter(Boolean))].sort();
+  // Solo productos con compras reales (cantidad > 0)
+  const P=[...new Set(D.filter(d=>d.CAT===3&&['C','CPRA'].includes(d['R/P'])&&d._q>0).map(d=>d['PRODUCT/LABOR']).filter(Boolean))].sort().slice(0,150);
+
+  buildCheckGroup('ckSupEmp','supEmp',E,()=>'#2e86c1');
+  buildCheckGroup('ckSupCult','supCult',CS,(c,i)=>cultColor(c,i));
+  buildCheckGroup('ckCostEmp','costEmp',E,()=>'#2e86c1');
+  buildCheckGroup('ckLabEmp','labEmp',E,()=>'#2e86c1');
+
+  const fs=(id,arr)=>{
+    const s=document.getElementById(id); if(!s) return;
+    // Si tiene options y la primera es vacía (single-select), preservarla
+    const primerOpt=s.options[0]&&s.options[0].value===''?s.options[0].outerHTML:'';
+    s.innerHTML=primerOpt+arr.map(v=>`<option value="${v}">${v}</option>`).join('');
+  };
+  fs('fCC',C); fs('fLL',L); fs('fIT',T); fs('fIP',P); fs('fCompT',T); fs('fCompP',P); fs('fAE',E);
+}
+
+function setActSup(act) {
+  _actSup = act;
+  ['Todas','Agri','Gan'].forEach(n => {
+    const b = document.getElementById('btnAct'+n);
+    if (b) { b.style.background = '#f4f6f8'; b.style.color = '#666'; b.style.border = '1px solid #ddd'; }
+  });
+  const activo = act==='todas'?'Todas':act==='agri'?'Agri':'Gan';
+  const btn = document.getElementById('btnAct'+activo);
+  if (btn) { btn.style.background = '#1a5276'; btn.style.color = 'white'; btn.style.border = 'none'; }
+  // Actualizar checkboxes de cultivos según actividad
+  const cultivosSup = [...new Set(D.filter(d=>d.CAT===1&&['SGD','SFD'].includes(d['PRODUCT/LABOR'])).map(d=>d['CULTIVO']).filter(Boolean))].sort();
+  const filtrados = act==='todas' ? cultivosSup :
+                    act==='agri'  ? cultivosSup.filter(c=>esAgri(c)) :
+                                    cultivosSup.filter(c=>esGan(c));
+  buildCheckGroup('ckSupCult','supCult',filtrados,(c,i)=>cultColor(c,i));
+  rSup();
+}
+
+function setCostAct(act, btn) {
+  _actCost = act;
+  document.getElementById('btnCostAgri').style.cssText = 'background:#f4f6f8;color:#666;border:1px solid #ddd;border-radius:6px;padding:7px 18px;cursor:pointer;font-size:13px';
+  document.getElementById('btnCostGan').style.cssText = 'background:#f4f6f8;color:#666;border:1px solid #ddd;border-radius:6px;padding:7px 18px;cursor:pointer;font-size:13px';
+  btn.style.cssText = 'background:#1a5276;color:white;border:none;border-radius:6px;padding:7px 18px;cursor:pointer;font-size:13px;font-weight:600';
+  document.getElementById('ctCostTitulo').textContent = 'U$S/ha por empresa y cultivo — ' + (act==='agri'?'Agricultura':'Ganadería');
+  rCost();
+}
+
+function supMapAll(){
+  const m={};
+  // Para agricultura: solo invierno + verano (no segunda)
+  D.filter(d=>d.CAT===1&&['SGD','SFD'].includes(d['PRODUCT/LABOR'])).forEach(d=>{
+    const c = d['CULTIVO']||'?';
+    // Mapa general (todos los cultivos)
+    m[d._e+'|'+c]=(m[d._e+'|'+c]||0)+d._s;
+    m['emp|'+d._e]=(m['emp|'+d._e]||0)+d._s;
+    // Mapa agrícola (solo invierno + verano, sin segunda)
+    if (supAgriReal(c)) {
+      m['agri|'+d._e+'|'+c]=(m['agri|'+d._e+'|'+c]||0)+d._s;
+      m['agri|emp|'+d._e]=(m['agri|emp|'+d._e]||0)+d._s;
+    }
+    // Mapa ganadería
+    if (esGan(c)) {
+      m['gan|'+d._e+'|'+c]=(m['gan|'+d._e+'|'+c]||0)+d._s;
+      m['gan|emp|'+d._e]=(m['gan|emp|'+d._e]||0)+d._s;
+    }
+  });
+  return m;
+}
+
+// ── SUPERFICIES ──
+function rSup(){
+  const ES=getChecked('supEmp'), CS=getChecked('supCult');
+  let b=D.filter(d=>d.CAT===1&&['SGD','SFD'].includes(d['PRODUCT/LABOR']));
+  if(ES.length) b=b.filter(d=>ES.includes(d._e));
+  if(_actSup==='agri') b=b.filter(d=>esAgri(d['CULTIVO']));
+  else if(_actSup==='gan') b=b.filter(d=>esGan(d['CULTIVO']));
+  if(CS.length) b=b.filter(d=>CS.includes(d['CULTIVO']));
+
+  const pC={},pEC={};
+  b.forEach(d=>{
+    const c=d['CULTIVO']||'?', e=d._e;
+    const key = (_actSup==='agri' && ACT.segunda.includes(c)) ? c+'*' : c;
+    pC[key]=(pC[key]||0)+d._s;
+    if(!pEC[e]) pEC[e]={};
+    pEC[e][key]=(pEC[e][key]||0)+d._s;
+  });
+
+  const tot=Object.entries(pC).filter(([c])=>!c.endsWith('*')).reduce((s,[,v])=>s+v,0);
+  const totSeg=Object.entries(pC).filter(([c])=>c.endsWith('*')).reduce((s,[,v])=>s+v,0);
+  const top=Object.entries(pC).sort((a,b)=>b[1]-a[1]);
+  const subtitAct=_actSup==='agri'?'Agricultura':_actSup==='gan'?'Ganadería':'Todas';
+
+  document.getElementById('cSup').innerHTML=`
+    <div class="card"><div class="lbl">Superficie total — ${subtitAct}</div><div class="val">${fn(tot)} ha</div>${_actSup==='agri'&&totSeg>0?`<div class="sub">${fn(totSeg)} ha de segunda (sobre misma tierra)</div>`:''}</div>
+    <div class="card"><div class="lbl">Empresas</div><div class="val">${Object.keys(pEC).length}</div></div>
+    <div class="card"><div class="lbl">Cultivos</div><div class="val">${top.length}</div></div>
+    <div class="card verde"><div class="lbl">Cultivo principal</div><div class="val">${nc((top[0]?.[0]||'-').replace('*',''))}</div><div class="sub">${fn(top[0]?.[1]||0)} ha</div></div>`;
+
+  const topN=top.map(([c,v])=>[c.replace('*',''),v]);
+  dc('chSupC'); CH['chSupC']=new Chart(document.getElementById('chSupC'),{
+    type:'bar',
+    data:{labels:topN.map(([c])=>nc(c)),datasets:[{data:topN.map(([,v])=>v),backgroundColor:topN.map(([c],i)=>cultColor(c,i)),borderWidth:0}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>fn(v)}}},responsive:true}
+  });
+
+  const AE=Object.keys(pEC).sort(), AC=top.map(([c])=>c);
+  dc('chRot'); CH['chRot']=new Chart(document.getElementById('chRot'),{
+    type:'bar',
+    data:{labels:AE,datasets:AC.map((c,i)=>({label:nc(c.replace('*','')),data:AE.map(e=>{const t=Object.values(pEC[e]||{}).reduce((s,v)=>s+v,0);return t>0?((pEC[e][c]||0)/t*100):0;}),backgroundColor:cultColor(c.replace('*',''),i)}))},
+    options:{plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%`}}},scales:{x:{stacked:true},y:{stacked:true,max:100,ticks:{callback:v=>v+'%'}}},responsive:true}
+  });
+
+  renderTSup(Object.entries(pEC), AC, pC, tot, 'tot', -1);
+}
+
+function renderTSup(empEntries, AC, pC, tot, col, dir) {
+  const sorted = [...empEntries].sort((a,b)=>{
+    if(col==='emp') return dir*(a[0].localeCompare(b[0]));
+    if(col==='tot'){const tA=Object.values(a[1]).reduce((s,v)=>s+v,0),tB=Object.values(b[1]).reduce((s,v)=>s+v,0);return dir*(tB-tA);}
+    return dir*((b[1][col]||0)-(a[1][col]||0));
+  });
+  SS['sup']={col,dir,empEntries,AC,pC,tot};
+  const thead='<tr>'+[['emp','Empresa'],...AC.map(c=>[c,nc(c)]),['tot','Total ha']].map(([k,lb])=>`<th class="${SS['sup'].col===k?(dir===-1?'sort-desc':'sort-asc'):''}" onclick="tsortSup('${k}')">${lb}</th>`).join('')+'</tr>';
+  const tbody=sorted.map(([e,cultivos])=>{const tot2=Object.values(cultivos).reduce((s,v)=>s+v,0);return `<tr><td><b>${e}</b></td>${AC.map(c=>`<td>${cultivos[c]?fn(cultivos[c]):'-'}</td>`).join('')}<td><b>${fn(tot2)}</b></td></tr>`;}).join('');
+  const tf='<tr style="background:#f0f7ff;font-weight:700"><td>TOTAL</td>'+AC.map(c=>`<td>${fn(pC[c]||0)}</td>`).join('')+`<td>${fn(tot)}</td></tr>`;
+  document.getElementById('tSup').innerHTML=thead+tbody+tf;
+}
+function tsortSup(col){const s=SS['sup'];if(!s)return;renderTSup(s.empEntries,s.AC,s.pC,s.tot,col,s.col===col?s.dir*-1:-1);}
+
+// ── RESUMEN ──
+function rRes(){
+  const c1=D.filter(d=>d.CAT===1);
+  const uTot=c1.reduce((s,d)=>s+d._u,0);
+  const hoy=new Date();hoy.setHours(0,0,0,0);
+  const nA30=D.filter(d=>d.CAT===1&&d['R/P']==='P'&&d.FJ&&Math.floor((hoy-d.FJ)/86400000)>30).length;
+  const nA60=D.filter(d=>d.CAT===1&&d['R/P']==='P'&&d.FJ&&Math.floor((hoy-d.FJ)/86400000)>60).length;
+  const SM=supMapAll();
+
+  document.getElementById('cRes').innerHTML=`
+    <div class="card"><div class="lbl">Empresas</div><div class="val">${[...new Set(D.map(d=>d._e).filter(Boolean))].length}</div></div>
+    <div class="card verde"><div class="lbl">Inversión total (R+P)</div><div class="val" style="font-size:15px">${fu(uTot)}</div></div>
+    <div class="card alerta"><div class="lbl">Vencidos +30 días</div><div class="val">${nA30}</div></div>
+    <div class="card alerta"><div class="lbl">Supervencidos +60 días</div><div class="val">${nA60}</div></div>`;
+
+  // Chart inversión total por empresa
+  const pE={};
+  c1.forEach(d=>{pE[d._e]=(pE[d._e]||0)+d._u;});
+  const EL=Object.keys(pE).sort((a,b)=>pE[b]-pE[a]).slice(0,15);
+  dc('chResE'); CH['chResE']=new Chart(document.getElementById('chResE'),{
+    type:'bar',
+    data:{labels:EL,datasets:[{data:EL.map(e=>pE[e]),backgroundColor:'#2e86c1aa',borderColor:'#2e86c1',borderWidth:1}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>fu(v)}}},responsive:true}
+  });
+
+  // Chart por tipo — con etiquetas
+  const pT={};
+  c1.forEach(d=>{const t=d['TIPO']||'Otro';pT[t]=(pT[t]||0)+d._u;});
+  const tipoColors=['#2e86c1','#27ae60','#e67e22','#8e44ad','#e74c3c','#1abc9c','#f39c12','#2980b9'];
+  dc('chResT'); CH['chResT']=new Chart(document.getElementById('chResT'),{
+    type:'doughnut',
+    data:{labels:Object.keys(pT),datasets:[{data:Object.values(pT),backgroundColor:tipoColors}]},
+    options:{plugins:{legend:{position:'right',labels:{font:{size:11}}},tooltip:{callbacks:{label:ctx=>{const tot=Object.values(pT).reduce((s,v)=>s+v,0);return `${ctx.label}: ${(ctx.raw/tot*100).toFixed(1)}%`;}}}},responsive:true}
+  });
+
+  // Tabla resumen ordenable
+  const resData = EL.map(e=>{
+    const ut=c1.filter(d=>d._e===e).reduce((s,d)=>s+d._u,0);
+    const sup=SM['emp|'+e]||0;
+    const xha=sup>0?ut/sup:0;
+    return{e,sup,ut,xha};
+  });
+  renderTRes(resData,'ut',-1);
+}
+
+function renderTRes(data, col, dir){
+  SS['res']={col,dir,data};
+  const cols=[['e','Empresa'],['sup','Sup (ha)'],['ut','Inversión U$S'],['xha','U$S/Ha']];
+  const sorted=[...data].sort((a,b)=>{
+    if(col==='e') return dir*(a.e.localeCompare(b.e));
+    return dir*(b[col]-a[col]);
+  });
+  const th='<tr>'+cols.map(([k,lb])=>`<th class="${SS['res'].col===k?(dir===-1?'sort-desc':'sort-asc'):''}" onclick="tsortRes('${k}')">${lb}</th>`).join('')+'</tr>';
+  const tb=sorted.map(f=>`<tr><td><b>${f.e}</b></td><td>${fn(f.sup)}</td><td>${fu(f.ut)}</td><td><b>${f.xha>0?f.xha.toFixed(1):'-'}</b></td></tr>`).join('');
+  document.getElementById('tRes').innerHTML=th+tb;
+}
+function tsortRes(col){const s=SS['res'];if(!s)return;renderTRes(s.data,col,s.col===col?s.dir*-1:-1);}
+
+// ── COSTOS ──
+let _cf=[], _ct=[], _empColors={};
+function rCost(){
+  const ES=getChecked('costEmp');
+  const cv=document.getElementById('fCC').value;
+  const SM=supMapAll();
+  let b=D.filter(d=>d.CAT===1&&(d['R/P']==='R'||d['R/P']==='P'));
+  if(ES.length) b=b.filter(d=>ES.includes(d._e));
+  if(_actCost==='agri') b=b.filter(d=>esAgri(d['CULTIVO']));
+  else if(_actCost==='gan') b=b.filter(d=>esGan(d['CULTIVO']));
+  if(cv) b=b.filter(d=>d['CULTIVO']===cv);
+
+  const T=[...new Set(b.map(d=>d['TIPO']).filter(Boolean))].sort();
+  const G={};
+  b.forEach(d=>{
+    const k=d._e+'|'+(d['CULTIVO']||'?');
+    if(!G[k])G[k]={e:d._e,c:d['CULTIVO']||'?',u:0,tip:{}};
+    G[k].u+=d._u;
+    const ti=d['TIPO']||'Otro';
+    G[k].tip[ti]=(G[k].tip[ti]||0)+d._u;
+  });
+
+  const smPfx=_actCost==='agri'?'agri|':_actCost==='gan'?'gan|':'';
+  let F=Object.entries(G).map(([k,g])=>{
+    const sup=SM[smPfx+k]||SM[k]||0;
+    const xha=sup>0?g.u/sup:null;
+    const tXha={};
+    T.forEach(ti=>{tXha[ti]=sup>0?(g.tip[ti]||0)/sup:0;});
+    return{e:g.e,c:g.c,sup,u:g.u,xha,tXha};
+  }).filter(f=>f.xha!==null);
+
+  _cf=F; _ct=T;
+
+  const tTot=F.reduce((s,f)=>s+f.u,0);
+  const sTot=F.reduce((s,f)=>s+f.sup,0);
+  const promXha=sTot>0?tTot/sTot:0;
+
+  document.getElementById('cCost').innerHTML=`
+    <div class="card verde"><div class="lbl">Inversión total (R+P)</div><div class="val" style="font-size:15px">${fu(tTot)}</div></div>
+    <div class="card"><div class="lbl">Superficie total</div><div class="val">${fn(sTot)} ha</div></div>
+    <div class="card"><div class="lbl">U$S/Ha promedio</div><div class="val">${promXha>0?promXha.toFixed(1):'-'}</div></div>`;
+
+  // Colores fijos por empresa
+  const empsCost=[...new Set(F.map(f=>f.e))].sort();
+  const empColPalette=['#2e86c1','#e74c3c','#27ae60','#8e44ad','#e67e22','#1abc9c','#f39c12','#2980b9','#16a085','#d35400','#c0392b','#7f8c8d'];
+  _empColors={};
+  empsCost.forEach((e,i)=>{_empColors[e]=empColPalette[i%empColPalette.length];});
+
+  // Gráfico: si hay cultivo filtrado → barras por empresa para ese cultivo
+  //          si no → barras por empresa+cultivo con color por empresa
+  const top=F.filter(f=>f.xha>0).sort((a,b)=>b.xha-a.xha).slice(0,25);
+  const titulo=cv?`U$S/ha por empresa — ${nc(cv)}`:'U$S/ha por empresa y cultivo';
+  document.getElementById('ctCostTitulo').textContent=titulo+' — '+(_actCost==='agri'?'Agricultura':'Ganadería');
+
+  dc('chCost');
+  if(cv){
+    // Cultivo filtrado: eje X = empresas, una barra por empresa, color por empresa
+    const empsEnCultivo=[...new Set(F.map(f=>f.e))].sort((a,b2)=>{
+      const fa=F.find(f=>f.e===a), fb=F.find(f=>f.e===b2);
+      return (fb?.xha||0)-(fa?.xha||0);
+    });
+    CH['chCost']=new Chart(document.getElementById('chCost'),{
+      type:'bar',
+      data:{
+        labels:empsEnCultivo,
+        datasets:[{
+          label:nc(cv),
+          data:empsEnCultivo.map(e=>{const f=F.find(ff=>ff.e===e);return f?.xha||0;}),
+          backgroundColor:empsEnCultivo.map(e=>_empColors[e]+'cc'),
+          borderColor:empsEnCultivo.map(e=>_empColors[e]),
+          borderWidth:1
+        }]
+      },
+      options:{
+        plugins:{legend:{display:false}},
+        scales:{y:{ticks:{callback:v=>v.toFixed(0)},title:{display:true,text:'U$S/ha'}}},
+        responsive:true
+      }
+    });
+  } else {
+    // Sin filtro: eje X = cultivos, una serie por empresa (barras agrupadas), etiqueta solo cultivo
+    const cultivosTop=[...new Set(top.map(f=>f.c))];
+    // Ordenar cultivos por promedio descendente
+    const promPorCultChart={};
+    cultivosTop.forEach(c=>{
+      const vals=top.filter(f=>f.c===c);
+      promPorCultChart[c]=vals.reduce((s,f)=>s+f.xha,0)/vals.length;
+    });
+    const cultivosOrdenados=cultivosTop.sort((a,b2)=>promPorCultChart[b2]-promPorCultChart[a]);
+
+    const datasets=empsCost.map(e=>({
+      label:e,
+      data:cultivosOrdenados.map(c=>{const f=F.find(ff=>ff.e===e&&ff.c===c);return f?.xha||null;}),
+      backgroundColor:_empColors[e]+'cc',
+      borderColor:_empColors[e],
+      borderWidth:1,
+      skipNull:true
+    }));
+    CH['chCost']=new Chart(document.getElementById('chCost'),{
+      type:'bar',
+      data:{labels:cultivosOrdenados.map(c=>nc(c)),datasets},
+      options:{
+        plugins:{legend:{position:'bottom'}},
+        scales:{y:{ticks:{callback:v=>v.toFixed(0)},title:{display:true,text:'U$S/ha'}}},
+        responsive:true
+      }
+    });
+  }
+
+  renderTC(F,T,'xha',-1,promXha);
+}
+
+function renderTC(F,T,col,dir,promXha){
+  SS['cost']={col,dir,promXha:promXha||0};
+  const cols=[['e','Empresa'],['c','Cultivo'],['sup','Ha'],['u','Total U$S'],['xha','U$S/Ha'],...T.map(t=>['t_'+t,t])];
+  const sorted=[...F].sort((a,b)=>{
+    if(col==='e') return dir*(a.e.localeCompare(b.e));
+    if(col==='c') return dir*(nc(a.c).localeCompare(nc(b.c)));
+    const va=col.startsWith('t_')?a.tXha[col.slice(2)]||0:a[col]||0;
+    const vb=col.startsWith('t_')?b.tXha[col.slice(2)]||0:b[col]||0;
+    return dir*(vb-va);
+  });
+
+  // Calcular promedio por cultivo para resaltar sobrecostos
+  const promPorCult={};
+  const countPorCult={};
+  F.forEach(f=>{promPorCult[f.c]=(promPorCult[f.c]||0)+f.xha;countPorCult[f.c]=(countPorCult[f.c]||0)+1;});
+  Object.keys(promPorCult).forEach(c=>{promPorCult[c]/=countPorCult[c];});
+
+  function colorCelda(val, prom){
+    if(!prom||!val) return '';
+    const pct=(val-prom)/prom*100;
+    if(pct>20) return 'background:#fdecea;color:#c0392b;font-weight:700';
+    if(pct>10) return 'background:#fef3e2;color:#e67e22;font-weight:700';
+    return '';
+  }
+
+  const th='<tr>'+cols.map(([k,lb])=>`<th class="${SS['cost'].col===k?(dir===-1?'sort-desc':'sort-asc'):''}" onclick="tsort('${k}')">${lb}</th>`).join('')+'</tr>';
+
+  // Fila promedio primero
+  const promRow=`<tr style="background:#e8f4fb;font-weight:700">
+    <td>PROMEDIO</td><td>—</td><td>—</td><td>—</td>
+    <td>${promXha>0?promXha.toFixed(1):'-'}</td>
+    ${T.map(t=>{
+      const pT=F.reduce((s,f)=>s+f.tXha[t]*f.sup,0)/Math.max(F.reduce((s,f)=>s+f.sup,0),1);
+      return `<td>${pT>0?pT.toFixed(1):'-'}</td>`;
+    }).join('')}
+  </tr>`;
+
+  const tb=sorted.map(f=>{
+    const prom=promPorCult[f.c]||0;
+    const estilo=colorCelda(f.xha,prom);
+    const empColor=_empColors[f.e]||'#333';
+    return `<tr>
+      <td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${empColor};margin-right:5px"></span>${f.e}</td>
+      <td>${nc(f.c)}</td><td>${fn(f.sup)}</td><td>${fu(f.u)}</td>
+      <td style="${estilo}">${f.xha>0?f.xha.toFixed(1):'-'}</td>
+      ${T.map(t=>{
+        const vt=f.tXha[t];
+        const pt=F.filter(ff=>ff.c===f.c).reduce((s,ff)=>s+ff.tXha[t]*ff.sup,0)/Math.max(F.filter(ff=>ff.c===f.c).reduce((s,ff)=>s+ff.sup,0),1);
+        const estiloT=colorCelda(vt,pt);
+        return `<td style="${estiloT}">${vt>0?vt.toFixed(1):'-'}</td>`;
+      }).join('')}
+    </tr>`;
+  }).join('');
+
+  document.getElementById('tCost').innerHTML=th+promRow+tb;
+}
+function tsort(col){const s=SS['cost'];if(!s)return;renderTC(_cf,_ct,col,s.col===col?s.dir*-1:-1,s.promXha);}
+
+// ── LABORES ──
+function tablaTopLab(filas, titulo, colorH){
+  // Solo filas con número de factura
+  const conFactura=filas.filter(d=>d['Nº FACT']&&String(d['Nº FACT']).trim()!==''&&String(d['Nº FACT']).trim()!=='0');
+  if(!conFactura.length) return `<div style="font-size:12px;font-weight:700;color:${colorH};margin:14px 0 6px">${titulo}</div><div style="color:#999;font-size:12px;padding:8px 0">Sin registros con factura</div>`;
+  // Deduplicar: por empresa+labor+precio, quedarse con una sola fila
+  const vistas=new Set();
+  const dedup=conFactura.filter(d=>{
+    const key=d._e+'|'+(d['PRODUCT/LABOR']||'')+"|"+d._au;
+    if(vistas.has(key)) return false;
+    vistas.add(key); return true;
+  });
+  const hdr=`<div style="font-size:12px;font-weight:700;color:${colorH};margin:14px 0 6px">${titulo}</div>`;
+  const th='<tr><th>Empresa</th><th>Campo</th><th>Cultivo</th><th>Labor</th><th>$/ha</th><th>Nº Factura</th><th>Fecha</th></tr>';
+  const tb=dedup.map(d=>`<tr>
+    <td>${d._e}</td><td>${d['CAMPO']||'-'}</td>
+    <td>${nc(d['CULTIVO'])}</td>
+    <td>${d['PRODUCT/LABOR']||'-'}</td>
+    <td><b>${f$(d._au)}</b></td>
+    <td>${d['Nº FACT']}</td>
+    <td>${d.FJ?d.FJ.toLocaleDateString('es-AR'):'-'}</td>
+  </tr>`).join('');
+  return hdr+`<div class="tabla-wrap"><div class="ts"><table>${th+tb}</table></div></div>`;
+}
+
+function rLab(){
+  const ES=getChecked('labEmp');
+  const lf=document.getElementById('fLL').value;
+  let b=D.filter(d=>d.CAT===1&&d['R/P']==='R'&&['LABRANZA','COSECHA'].includes(d['TIPO']));
+  if(ES.length) b=b.filter(d=>ES.includes(d._e));
+  if(lf) b=b.filter(d=>d['PRODUCT/LABOR']===lf);
+
+  // Destruir gráfico si existe (ya no lo mostramos)
+  dc('chLab');
+  document.getElementById('chLab').style.display='none';
+
+  // Tabla comparativa por labor y empresa
+  const pLE={};
+  b.forEach(d=>{
+    const l=d['PRODUCT/LABOR']||'?', e=d._e;
+    if(!pLE[l]) pLE[l]={};
+    if(!pLE[l][e]) pLE[l][e]={usd:0,sup:0};
+    pLE[l][e].usd+=d._u; pLE[l][e].sup+=d._s;
+  });
+  const empM=ES.length?ES:[...new Set(b.map(d=>d._e))].sort();
+  const labProm={};
+  Object.keys(pLE).forEach(l=>{
+    const totU=Object.values(pLE[l]).reduce((s,v)=>s+v.usd,0);
+    const totS=Object.values(pLE[l]).reduce((s,v)=>s+v.sup,0);
+    labProm[l]=totS>0?totU/totS:0;
+  });
+  const labL=Object.keys(pLE).sort((a,b2)=>labProm[b2]-labProm[a]);
+
+  const th1='<tr><th>Labor</th><th>Tipo</th>'+empM.map(e=>`<th>${e} U$S/ha</th>`).join('')+'<th>Prom.</th></tr>';
+  const tb1=labL.map(l=>{
+    const tipo=b.find(d=>d['PRODUCT/LABOR']===l&&d['TIPO'])?.['TIPO']||'-';
+    return `<tr><td><b>${l}</b></td><td>${tipo}</td>${empM.map(e=>{const d=pLE[l][e];return `<td>${d&&d.sup>0?(d.usd/d.sup).toFixed(2):'-'}</td>`;}).join('')}<td><b>${labProm[l]>0?labProm[l].toFixed(2):'-'}</b></td></tr>`;
+  }).join('');
+
+  let html=`<div class="tabla-wrap"><div class="tt">Comparativo por empresa <span>U$S/ha — CAT 1 R</span></div><div class="ts"><table>${th1+tb1}</table></div></div>`;
+
+  // Top 10 baratas / caras — solo con factura
+  const rowsTop=D.filter(d=>d.CAT===1&&d['R/P']==='R'&&['LABRANZA','COSECHA'].includes(d['TIPO'])&&d._au>0&&d._s>0&&d['Nº FACT']&&String(d['Nº FACT']).trim()!==''&&String(d['Nº FACT']).trim()!=='0');
+  const filtTop=lf?rowsTop.filter(d=>d['PRODUCT/LABOR']===lf):rowsTop;
+  const filtTopEmp=ES.length?filtTop.filter(d=>ES.includes(d._e)):filtTop;
+  if(filtTopEmp.length){
+    const sorted=[...filtTopEmp].sort((a,b2)=>a._au-b2._au);
+    html+=tablaTopLab(sorted.slice(0,10),'🟢 10 más baratas con factura ($/ha)','#27ae60');
+    html+=tablaTopLab(sorted.slice(-10).reverse(),'🔴 10 más caras con factura ($/ha)','#e74c3c');
+  }
+
+  document.getElementById('tLab').innerHTML=html;
+}
+
+// ── INSUMOS ──
+function tablaTopIns(filas, titulo, colorH){
+  if(!filas.length) return '';
+  const hdr=`<div style="font-size:12px;font-weight:700;color:${colorH};margin:14px 0 6px">${titulo}</div>`;
+  const th='<tr><th>Producto</th><th>Tipo</th><th>Proveedor</th><th>Empresa</th><th>Cantidad</th><th>Unidad</th><th>U$S/Unidad</th><th>Total U$S</th><th>Nº Factura</th></tr>';
+  const tb=filas.map(d=>`<tr>
+    <td>${d['PRODUCT/LABOR']||'-'}</td><td>${d['TIPO']||'-'}</td>
+    <td>${d['PROVEEDOR']||'-'}</td><td>${d._e}</td>
+    <td>${fn(d._q)}</td><td>${d['UNIDAD']||'-'}</td>
+    <td><b>${d['U$S/UNIDAD']?parseFloat(d['U$S/UNIDAD']).toFixed(2):'-'}</b></td>
+    <td>${fu(fv(d['U$S TOT']))}</td>
+    <td>${d['Nº FACT']||'-'}</td>
+  </tr>`).join('');
+  return hdr+`<div class="tabla-wrap"><div class="ts"><table>${th+tb}</table></div></div>`;
+}
+
+function rIns(){
+  const ti=document.getElementById('fIT').value;
+  const prs=[...document.getElementById('fIP').selectedOptions].map(o=>o.value).filter(Boolean);
+
+  // Filtrado en cascada: actualizar productos según tipo — solo con cantidad real
+  const todosProds=[...new Set(D.filter(d=>d.CAT===3&&['C','CPRA'].includes(d['R/P'])&&d._q>0&&(!ti||d['TIPO']===ti)).map(d=>d['PRODUCT/LABOR']).filter(Boolean))].sort().slice(0,150);
+  const selIP=document.getElementById('fIP');
+  // Preservar selección actual
+  const selActual=new Set(prs);
+  selIP.innerHTML=todosProds.map(v=>`<option value="${v}"${selActual.has(v)?' selected':''}>${v}</option>`).join('');
+
+  let b=D.filter(d=>d.CAT===3&&['C','CPRA'].includes(d['R/P']));
+  if(ti) b=b.filter(d=>d['TIPO']===ti);
+  if(prs.length) b=b.filter(d=>prs.includes(d['PRODUCT/LABOR']));
+
+  if(prs.length===1){
+    // Un solo producto: top 10 baratas/caras
+    const conPrecio=b.filter(d=>d['U$S/UNIDAD']&&parseFloat(d['U$S/UNIDAD'])>0);
+    const sorted=[...conPrecio].sort((a,b2)=>parseFloat(a['U$S/UNIDAD'])-parseFloat(b2['U$S/UNIDAD']));
+    document.getElementById('tIns').innerHTML=
+      tablaTopIns(sorted.slice(0,10),'🟢 10 compras más baratas (U$S/unidad)','#27ae60')+
+      tablaTopIns(sorted.slice(-10).reverse(),'🔴 10 compras más caras (U$S/unidad)','#e74c3c');
+  } else {
+    // Varios o ninguno: tabla general
+    const th='<tr><th>Producto</th><th>Tipo</th><th>Proveedor</th><th>Empresa</th><th>Cantidad</th><th>Unidad</th><th>U$S/Unidad</th><th>Total U$S</th></tr>';
+    const tb=b.slice(0,300).map(d=>`<tr>
+      <td>${d['PRODUCT/LABOR']||'-'}</td><td>${d['TIPO']||'-'}</td>
+      <td>${d['PROVEEDOR']||'-'}</td><td>${d._e}</td>
+      <td>${fn(d._q)}</td><td>${d['UNIDAD']||'-'}</td>
+      <td>${d['U$S/UNIDAD']?parseFloat(d['U$S/UNIDAD']).toFixed(2):'-'}</td>
+      <td>${fu(fv(d['U$S TOT']))}</td>
+    </tr>`).join('');
+    document.getElementById('tIns').innerHTML=`<div class="tabla-wrap"><div class="ts"><table>${th+tb}</table></div></div>`;
+  }
+}
+
+// ── COMPRAS ──
+function rComp(){
+  const ti=document.getElementById('fCompT').value;
+  const prs=[...document.getElementById('fCompP').selectedOptions].map(o=>o.value).filter(Boolean);
+
+  // Filtrado en cascada: actualizar productos según tipo — solo con uso o compra real
+  const todosProdsComp=[...new Set(D.filter(d=>d.CAT===1&&(d['R/P']==='R'||d['R/P']==='P')&&d._q>0&&(!ti||d['TIPO']===ti)).map(d=>d['PRODUCT/LABOR']).filter(Boolean))].sort().slice(0,150);
+  const selCP=document.getElementById('fCompP');
+  const selActual=new Set(prs);
+  selCP.innerHTML=todosProdsComp.map(v=>`<option value="${v}"${selActual.has(v)?' selected':''}>${v}</option>`).join('');
+  const prsFinal=prs.filter(p=>todosProdsComp.includes(p));
+
+  let us=D.filter(d=>d.CAT===1&&(d['R/P']==='R'||d['R/P']==='P'));
+  let co=D.filter(d=>d.CAT===3&&['C','CPRA'].includes(d['R/P']));
+  if(ti){us=us.filter(d=>d['TIPO']===ti);co=co.filter(d=>d['TIPO']===ti);}
+  const N={};
+  us.forEach(d=>{
+    const p=d['PRODUCT/LABOR']||'?';
+    if(!N[p])N[p]={ti:d['TIPO']||'',un:d['UNIDAD']||'',uQ:0,pQ:0,cQ:0,uUsd:0,pUsd:0};
+    if(d['R/P']==='R'){N[p].uQ+=d._q;N[p].uUsd+=d._u;}
+    else{N[p].pQ+=d._q;N[p].pUsd+=d._u;}
+  });
+  co.forEach(d=>{const p=d['PRODUCT/LABOR']||'?';if(!N[p])N[p]={ti:d['TIPO']||'',un:d['UNIDAD']||'',uQ:0,pQ:0,cQ:0,uUsd:0,pUsd:0};N[p].cQ+=d._q;});
+  let F=Object.entries(N).filter(([,v])=>v.uQ+v.pQ+v.cQ>0).sort((a,b)=>b[1].uQ+b[1].pQ-(a[1].uQ+a[1].pQ));
+  if(prsFinal.length) F=F.filter(([p])=>prsFinal.includes(p));
+
+  const stUQ=F.reduce((s,[,v])=>s+v.uQ,0);
+  const stPQ=F.reduce((s,[,v])=>s+v.pQ,0);
+  const stTot=stUQ+stPQ;
+  const stCQ=F.reduce((s,[,v])=>s+v.cQ,0);
+  const stDf=stCQ-stTot;
+  const stUsd=F.reduce((s,[,v])=>s+v.uUsd+v.pUsd,0);
+  const stBc=stDf<0?'rojo':stDf===0?'verde':'naranja';
+
+  const thead='<tr><th>Producto</th><th>Tipo</th><th>Unidad</th><th>Usado</th><th>Presup.</th><th>Total nec.</th><th>U$S necesarios</th><th>Comprado</th><th>Diferencia</th></tr>';
+  const tsub=`<tr style="background:#e8f4fb;font-weight:700">
+    <td>SUBTOTAL (${F.length})</td><td></td><td></td>
+    <td>${fn(stUQ)}</td><td>${fn(stPQ)}</td><td>${fn(stTot)}</td>
+    <td><b>${fu(stUsd)}</b></td><td>${fn(stCQ)}</td>
+    <td><span class="badge ${stBc}">${stDf>=0?'+':''}${fn(stDf)}</span></td>
+  </tr>`;
+  const tbody=F.map(([p,v])=>{
+    const tot=v.uQ+v.pQ;const df=v.cQ-tot;const bc=df<0?'rojo':df===0?'verde':'naranja';
+    const usdTot=v.uUsd+v.pUsd;
+    return `<tr><td><b>${p}</b></td><td>${v.ti}</td><td>${v.un}</td><td>${fn(v.uQ)}</td><td>${fn(v.pQ)}</td><td>${fn(tot)}</td><td>${fu(usdTot)}</td><td>${fn(v.cQ)}</td><td><span class="badge ${bc}">${df>=0?'+':''}${fn(df)}</span></td></tr>`;
+  }).join('');
+  document.getElementById('tComp').innerHTML=thead+tsub+tbody;
+}
+
+// ── ALERTAS ──
+function rAlt(){
+  const hoy=new Date();hoy.setHours(0,0,0,0);
+  const E=[...new Set(D.map(d=>d._e).filter(Boolean))].sort();
+  document.getElementById('gAlt').innerHTML=E.map(e=>{
+    const dias30=D.filter(d=>d.CAT===1&&d['R/P']==='P'&&d.FJ&&Math.floor((hoy-d.FJ)/86400000)>30&&d._e===e).length;
+    const dias60=D.filter(d=>d.CAT===1&&d['R/P']==='P'&&d.FJ&&Math.floor((hoy-d.FJ)/86400000)>60&&d._e===e).length;
+    const nE=D.filter(d=>(d['REVISAR']===1||d['REVISAR']==='1')&&d._e===e).length;
+    const tot=dias30+nE;
+    const cls=dias60>0?'sup':tot>0?'con':'sin';
+    return `<div class="ac ${cls}" onclick="selAE('${e}')"><div class="ae">${e}</div><div class="an">${tot}</div><div class="as">${dias30} venc · ${dias60} supervenc · ${nE} err</div></div>`;
+  }).join('');
+  rAltD();
+}
+function selAE(e){document.getElementById('fAE').value=e;rAltD();}
+function rAltD(){
+  const emp=document.getElementById('fAE').value, ti=document.getElementById('fAT').value;
+  if(!emp){document.getElementById('tAlt').innerHTML='';document.getElementById('altSub').textContent='Seleccioná una empresa';return;}
+  const hoy=new Date();hoy.setHours(0,0,0,0);
+  const V=D.filter(d=>d.CAT===1&&d['R/P']==='P'&&d.FJ&&d._e===emp);
+  const ER=D.filter(d=>(d['REVISAR']===1||d['REVISAR']==='1')&&d._e===emp);
+  let F=[];
+  V.forEach(d=>{
+    const dias=Math.floor((hoy-d.FJ)/86400000);
+    if(dias<=30) return;
+    const tipo=dias>60?'supervencido':'vencido';
+    if(!ti||ti===tipo) F.push({ti:tipo,d,dias});
+  });
+  if(!ti||ti==='error') ER.forEach(d=>F.push({ti:'error',d,dias:0}));
+  F.sort((a,b)=>b.dias-a.dias);
+  document.getElementById('altSub').textContent=emp+' — '+F.length+' alertas';
+  document.getElementById('tAlt').innerHTML='<tr><th>Tipo alerta</th><th>Campo</th><th>Cultivo</th><th>Labor</th><th>Tipo labor</th><th>Fecha</th><th>Días</th><th>U$S</th></tr>'+
+    F.map(({ti,d,dias})=>{
+      const bc=ti==='supervencido'?'supervenc':ti==='vencido'?'rojo':'azul';
+      const tipoLabor = (d['TIPO'] && !String(d['TIPO']).startsWith('#')) ? d['TIPO'] : '-';
+      return `<tr><td><span class="badge ${bc}">${ti==='supervencido'?'Supervencido':ti==='vencido'?'Vencido':'Error'}</span></td><td>${d['CAMPO']||'-'}</td><td>${nc(d['CULTIVO'])}</td><td>${d['PRODUCT/LABOR']||'-'}</td><td>${tipoLabor}</td><td>${d.FJ?d.FJ.toLocaleDateString('es-AR'):'-'}</td><td>${dias>0?dias:'-'}</td><td>${fu(d._u)}</td></tr>`;
+    }).join('');
+}
+
+// ── ANÁLISIS AUTOMÁTICO ──
+function seccion(titulo, contenido){
+  return `<div style="background:white;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.08);margin-bottom:14px;overflow:hidden">
+    <div class="tt">${titulo}</div>
+    <div style="padding:16px 18px">${contenido}</div>
+  </div>`;
+}
+function fila(label, valor, color='#333'){
+  return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f5f5f5">
+    <span style="color:#666;font-size:12px">${label}</span>
+    <span style="font-weight:700;color:${color};font-size:13px">${valor}</span>
+  </div>`;
+}
+function ranking(items, labelFn, valFn, colorFn){
+  return items.map((it,i)=>{
+    const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}.`;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f5f5f5">
+      <span style="font-size:15px;width:24px;text-align:center">${medal}</span>
+      <span style="flex:1;font-size:12px;color:#444">${labelFn(it)}</span>
+      <span style="font-weight:700;color:${colorFn?colorFn(it,i):'#1a5276'};font-size:13px">${valFn(it)}</span>
+    </div>`;
+  }).join('');
+}
+
+function rAnalisis(){
+  const SM=supMapAll();
+  const c1=D.filter(d=>d.CAT===1);
+  const c1R=c1.filter(d=>d['R/P']==='R');
+  const c3=D.filter(d=>d.CAT===3&&['C','CPRA'].includes(d['R/P']));
+  const hoy=new Date();hoy.setHours(0,0,0,0);
+  const emps=[...new Set(D.map(d=>d._e).filter(Boolean))].sort();
+
+  // ── SUPERFICIES ──
+  const supPorEmp=emps.map(e=>({e,supAgri:SM['agri|emp|'+e]||0,supGan:SM['gan|emp|'+e]||0,supTot:SM['emp|'+e]||0})).sort((a,b)=>b.supAgri-a.supAgri);
+  const porCultAgri={}, porCultGan={};
+  D.filter(d=>d.CAT===1&&['SGD','SFD'].includes(d['PRODUCT/LABOR'])).forEach(d=>{
+    const c=d['CULTIVO']||'?';
+    if(supAgriReal(c)) porCultAgri[c]=(porCultAgri[c]||0)+d._s;
+    if(esGan(c)) porCultGan[c]=(porCultGan[c]||0)+d._s;
+  });
+  const topAgri=Object.entries(porCultAgri).sort((a,b)=>b[1]-a[1]);
+  const topGan=Object.entries(porCultGan).sort((a,b)=>b[1]-a[1]);
+  const supAgriTotal=Object.values(porCultAgri).reduce((s,v)=>s+v,0);
+  const supGanTotal=Object.values(porCultGan).reduce((s,v)=>s+v,0);
+
+  // ── COSTOS AGRICULTURA ──
+  const costAgri=emps.map(e=>{
+    const sup=SM['agri|emp|'+e]||0;
+    const u=c1.filter(d=>d._e===e&&esAgri(d['CULTIVO'])).reduce((s,d)=>s+d._u,0);
+    return{e,sup,u,xha:sup>0?u/sup:null};
+  }).filter(f=>f.xha!==null&&f.sup>=30).sort((a,b)=>a.xha-b.xha);
+
+  // ── COSTOS GANADERÍA ──
+  const costGan=emps.map(e=>{
+    const sup=SM['gan|emp|'+e]||0;
+    const u=c1.filter(d=>d._e===e&&esGan(d['CULTIVO'])).reduce((s,d)=>s+d._u,0);
+    return{e,sup,u,xha:sup>0?u/sup:null};
+  }).filter(f=>f.xha!==null&&f.sup>=10).sort((a,b)=>a.xha-b.xha);
+
+  // ── LABORES ──
+  const precioLabEmp=emps.map(e=>{
+    const rows=c1R.filter(d=>['LABRANZA','COSECHA'].includes(d['TIPO'])&&d._e===e);
+    const usd=rows.reduce((s,d)=>s+d._u,0);
+    const sup=rows.reduce((s,d)=>s+d._s,0);
+    return{e,xha:sup>0?usd/sup:null};
+  }).filter(f=>f.xha!==null).sort((a,b)=>a.xha-b.xha);
+
+  // ── INSUMOS ──
+  const insPorTipo={};
+  c3.forEach(d=>{
+    const t=d['TIPO']||'Otro';
+    if(!insPorTipo[t])insPorTipo[t]={usd:0,n:0};
+    insPorTipo[t].usd+=fv(d['U$S TOT']); insPorTipo[t].n++;
+  });
+  const topIns=Object.entries(insPorTipo).sort((a,b)=>b[1].usd-a[1].usd);
+
+  const provTot={};
+  c3.forEach(d=>{if(d['PROVEEDOR']){const p=d['PROVEEDOR'];if(!provTot[p])provTot[p]={usd:0,n:0};provTot[p].usd+=fv(d['U$S TOT']);provTot[p].n++;}});
+  const topProv=Object.entries(provTot).sort((a,b)=>b[1].usd-a[1].usd).slice(0,5);
+
+  // ── ALERTAS ──
+  const altEmp=emps.map(e=>{
+    const v30=D.filter(d=>d.CAT===1&&d['R/P']==='P'&&d.FJ&&Math.floor((hoy-d.FJ)/86400000)>30&&d._e===e).length;
+    const v60=D.filter(d=>d.CAT===1&&d['R/P']==='P'&&d.FJ&&Math.floor((hoy-d.FJ)/86400000)>60&&d._e===e).length;
+    const er=D.filter(d=>(d['REVISAR']===1||d['REVISAR']==='1')&&d._e===e).length;
+    return{e,v30,v60,er,tot:v30+er};
+  }).sort((a,b)=>b.tot-a.tot);
+
+  let html='';
+
+  // 1. Superficies por actividad
+  html+=seccion('🌱 Superficies por actividad',`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div style="background:#f0f7ff;border-radius:8px;padding:12px">
+        <div style="font-size:11px;font-weight:700;color:#2e86c1;text-transform:uppercase;margin-bottom:6px">🌾 Agricultura</div>
+        ${fila('Superficie total', fn(supAgriTotal)+' ha')}
+        ${topAgri.slice(0,3).map(([c,v])=>fila(nc(c), fn(v)+' ha · '+(supAgriTotal>0?(v/supAgriTotal*100).toFixed(1):'0')+'%')).join('')}
+      </div>
+      <div style="background:#f0fff4;border-radius:8px;padding:12px">
+        <div style="font-size:11px;font-weight:700;color:#27ae60;text-transform:uppercase;margin-bottom:6px">🐄 Ganadería/Tambo</div>
+        ${fila('Superficie total', fn(supGanTotal)+' ha')}
+        ${topGan.slice(0,3).map(([c,v])=>fila(nc(c), fn(v)+' ha · '+(supGanTotal>0?(v/supGanTotal*100).toFixed(1):'0')+'%')).join('')}
+      </div>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;margin-bottom:6px">Ranking por sup. agrícola</div>
+    ${ranking(supPorEmp.filter(f=>f.supAgri>0).slice(0,6), f=>f.e, f=>fn(f.supAgri)+' ha agri · '+fn(f.supGan)+' ha gan', (f,i)=>i===0?'#27ae60':'#1a5276')}
+  `);
+
+  // 2. Costos agricultura
+  if(costAgri.length){
+    const diffA=costAgri.length>1?((costAgri[costAgri.length-1].xha-costAgri[0].xha)/costAgri[0].xha*100).toFixed(0):null;
+    html+=seccion('🌾 Eficiencia de costos — Agricultura',`
+      ${fila('Inversión agrícola total', fu(costAgri.reduce((s,f)=>s+f.u,0)))}
+      ${fila('🏆 Menor costo/ha', costAgri[0].e+' — '+costAgri[0].xha.toFixed(1)+' U$S/ha', '#27ae60')}
+      ${costAgri.length>1?fila('📈 Mayor costo/ha', costAgri[costAgri.length-1].e+' — '+costAgri[costAgri.length-1].xha.toFixed(1)+' U$S/ha', '#e67e22'):''}
+      ${diffA?fila('Brecha entre extremos', diffA+'% más caro', '#e74c3c'):''}
+      <div style="margin-top:12px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;margin-bottom:6px">Ranking eficiencia agrícola</div>
+      ${ranking(costAgri, f=>f.e+' · '+fn(f.sup)+' ha', f=>f.xha.toFixed(1)+' U$S/ha', (f,i)=>i===0?'#27ae60':i===costAgri.length-1?'#e67e22':'#1a5276')}
+    `);
+  }
+
+  // 3. Costos ganadería
+  if(costGan.length){
+    html+=seccion('🐄 Eficiencia de costos — Ganadería/Tambo',`
+      ${fila('Inversión ganadera total', fu(costGan.reduce((s,f)=>s+f.u,0)))}
+      ${fila('🏆 Menor costo/ha', costGan[0].e+' — '+costGan[0].xha.toFixed(1)+' U$S/ha', '#27ae60')}
+      ${costGan.length>1?fila('📈 Mayor costo/ha', costGan[costGan.length-1].e+' — '+costGan[costGan.length-1].xha.toFixed(1)+' U$S/ha', '#e67e22'):''}
+      <div style="margin-top:12px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;margin-bottom:6px">Ranking eficiencia ganadera</div>
+      ${ranking(costGan, f=>f.e+' · '+fn(f.sup)+' ha', f=>f.xha.toFixed(1)+' U$S/ha', (f,i)=>i===0?'#27ae60':i===costGan.length-1?'#e67e22':'#1a5276')}
+    `);
+  }
+
+  // 4. Labores
+  if(precioLabEmp.length){
+    html+=seccion('🚜 Precios de labores',`
+      ${fila('🏆 Menor costo labores/ha', precioLabEmp[0].e+' — '+precioLabEmp[0].xha.toFixed(2)+' U$S/ha', '#27ae60')}
+      ${precioLabEmp.length>1?fila('📈 Mayor costo labores/ha', precioLabEmp[precioLabEmp.length-1].e+' — '+precioLabEmp[precioLabEmp.length-1].xha.toFixed(2)+' U$S/ha', '#e67e22'):''}
+      <div style="margin-top:12px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;margin-bottom:6px">Ranking empresas</div>
+      ${ranking(precioLabEmp, f=>f.e, f=>f.xha.toFixed(2)+' U$S/ha', (f,i)=>i===0?'#27ae60':'#1a5276')}
+    `);
+  }
+
+  // 5. Insumos y proveedores
+  html+=seccion('🧪 Insumos y compras',`
+    <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;margin-bottom:6px">Inversión por tipo (CAT 3)</div>
+    ${topIns.map(([t,v])=>fila(t, fu(v.usd)+' · '+fn(v.n)+' ops')).join('')}
+    <div style="margin-top:12px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;margin-bottom:6px">Top 5 proveedores</div>
+    ${ranking(topProv, ([p])=>p, ([,v])=>fu(v.usd)+' · '+v.n+' ops')}
+  `);
+
+  // 6. Prolijidad
+  const sinAlertas=altEmp.filter(f=>f.tot===0);
+  const conAlertas=altEmp.filter(f=>f.tot>0);
+  html+=seccion('📋 Prolijidad operativa',`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div style="background:#eafaf1;border-radius:8px;padding:14px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:#27ae60">${sinAlertas.length}</div>
+        <div style="font-size:11px;color:#27ae60;font-weight:700">Sin alertas ✅</div>
+        <div style="font-size:11px;color:#666;margin-top:4px">${sinAlertas.map(f=>f.e).join(', ')||'-'}</div>
+      </div>
+      <div style="background:#fdecea;border-radius:8px;padding:14px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:#e74c3c">${conAlertas.length}</div>
+        <div style="font-size:11px;color:#e74c3c;font-weight:700">Con alertas pendientes</div>
+      </div>
+    </div>
+    ${altEmp.filter(f=>f.tot>0).map(f=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f5f5f5">
+        <span style="flex:1;font-size:12px;color:#444">${f.e}</span>
+        ${f.v60>0?`<span class="badge supervenc">${f.v60} supervenc.</span>`:''}
+        ${f.v30-f.v60>0?`<span class="badge rojo">${f.v30-f.v60} vencidos</span>`:''}
+        ${f.er>0?`<span class="badge azul">${f.er} errores</span>`:''}
+      </div>`).join('')}
+    ${conAlertas.length===0?'<div style="color:#27ae60;font-size:13px;padding:8px 0">✅ Todas las empresas están al día</div>':''}
+  `);
+
+  document.getElementById('analisisAuto').innerHTML=html;
+}
+
+function dc(id){if(CH[id]){CH[id].destroy();delete CH[id];}}
+
+// ── CARGA AUTOMÁTICA DESDE GOOGLE APPS SCRIPT ──
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxtl-uczzQDpzhVg325pRnLMrvChP9qBWiO1qu-8e3OyV8XrFlZs_59BsQC0ty-X6ii/exec';
+
+function setDriveStatus(msg, pct, sub) {
+  const el = document.getElementById('driveStatus');
+  const bar = document.getElementById('driveBar');
+  const subEl = document.getElementById('driveSubStatus');
+  if (el) el.textContent = msg;
+  if (bar) bar.style.width = pct + '%';
+  if (subEl && sub !== undefined) subEl.textContent = sub;
+}
+
+function procesarDatos(raw) {
+  let hr = -1;
+  for (let i = 0; i < Math.min(10, raw.length); i++) {
+    if (raw[i] && raw[i].includes('CAT') && raw[i].includes('EMPRESA')) { hr = i; break; }
+  }
+  if (hr === -1) throw new Error('Estructura no encontrada. Verificá que la planilla tiene la hoja BASE.');
+
+  const H = raw[hr].map(h => h ? String(h).trim() : '');
+  D = [];
+  for (let i = hr + 2; i < raw.length; i++) {
+    const row = raw[i]; if (!row) continue;
+    const o = {}; H.forEach((h, idx) => { o[h] = row[idx]; });
+    if (!o['EMPRESA']) continue;
+    ['$ TOT','U$S TOT','U$S/UNIDAD','TOTAL U$','$/UNIDAD','TOT UNIDADES','SUP'].forEach(k => {
+      if ((typeof o[k] === 'string' && o[k].startsWith('#')) || o[k] instanceof Error) o[k] = null;
+    });
+    o.CAT = parseInt(o.CAT) || 0;
+    o._e = String(o['Empresa_Archivo'] || o['EMPRESA'] || '').trim();
+    o._u = fv(o['U$S TOT']); o._a = fv(o['$ TOT']); o._s = fv(o['SUP']);
+    o._q = fv(o['TOT UNIDADES']); o._au = fv(o['$/UNIDAD']);
+    o.FJ = o['FECHA'] instanceof Date ? o['FECHA'] : (o['FECHA'] ? new Date(o['FECHA']) : null);
+    D.push(o);
+  }
+  const ej = D.find(d => d['Ejercicio'])?.['Ejercicio'] || '';
+  document.getElementById('hSub').textContent = (ej ? 'Ejercicio ' + ej + ' — ' : '') + D.length.toLocaleString() + ' registros';
+
+  document.getElementById('uploadScreen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  document.getElementById('loading').style.display = 'none';
+  poblar();
+  try { rSup(); } catch(e) { console.error('rSup', e); }
+  try { rRes(); } catch(e) { console.error('rRes', e); }
+  try { rCost(); } catch(e) { console.error('rCost', e); }
+  try { rLab(); } catch(e) { console.error('rLab', e); }
+  try { rIns(); } catch(e) { console.error('rIns', e); }
+  try { rComp(); } catch(e) { console.error('rComp', e); }
+  try { rAlt(); } catch(e) { console.error('rAlt', e); }
+  try { rAnalisis(); } catch(e) { console.error('rAnalisis', e); }
+}
+
+async function cargarDesdeGoogleDrive() {
+  try {
+    setDriveStatus('⏳ Conectando con Google Drive...', 15, 'Iniciando conexión');
+
+    const resp = await fetch(APPS_SCRIPT_URL);
+    setDriveStatus('⏳ Descargando datos...', 45, 'Recibiendo datos de la planilla');
+
+    const json = await resp.json();
+    if (!json.ok) throw new Error(json.error || 'Error en Apps Script');
+
+    setDriveStatus('⚙️ Procesando planilla...', 80, 'Leyendo ' + json.data.length + ' filas');
+
+    setTimeout(() => {
+      try {
+        procesarDatos(json.data);
+        setDriveStatus('✅ Datos cargados correctamente', 100, '');
+      } catch(e) {
+        setDriveStatus('⚠️ Error procesando datos', 0, e.message);
+        document.getElementById('driveProgress').style.display = 'none';
+      }
+    }, 300);
+
+  } catch (err) {
+    console.error('Error cargando desde Drive:', err);
+    setDriveStatus('⚠️ No se pudo cargar automáticamente', 0, err.message || 'Error de conexión');
+    document.getElementById('driveProgress').style.display = 'none';
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  cargarDesdeGoogleDrive();
+});
+</script>
+</body>
+</html>
