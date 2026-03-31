@@ -153,7 +153,9 @@ tr:hover td { background: #fafbfc; }
     <div class="tab" onclick="mt('costos',this)">💰 Costos x Ha</div>
     <div class="tab" onclick="mt('labores',this)">🚜 Precios Labores</div>
     <div class="tab" onclick="mt('insumos',this)">🧪 Precios Insumos</div>
-    <div class="tab" onclick="mt('compras',this)">📦 Compras</div>
+    <div class="tab" onclick="mt('compras',this)">📦 Compras x Producto</div>
+    <div class="tab" onclick="mt('comprasProv',this)">🏪 Compras x Proveedor</div>
+    <div class="tab" onclick="mt('produccion',this)">🌾 Producción</div>
     <div class="tab" onclick="mt('alertas',this)">⚠️ Alertas</div>
     <div class="tab" onclick="mt('analisis',this)">🤖 Análisis</div>
   </div>
@@ -280,6 +282,39 @@ tr:hover td { background: #fafbfc; }
       </div>
     </div>
     <div class="tabla-wrap"><div class="tt">Necesidades de compra <span>Usado + Presupuestado vs Comprado</span></div><div class="ts"><table id="tComp"></table></div></div>
+  </div>
+
+  <!-- COMPRAS x PROVEEDOR -->
+  <div id="tab-comprasProv" class="tab-content">
+    <div class="filtros">
+      <span class="filtros-titulo">Filtros</span>
+      <div class="fg"><label>Tipo</label><select id="fCPT" onchange="rCompProv()"><option value="">Todos</option></select></div>
+      <div class="fg"><label>Proveedor</label><select id="fCPProv" onchange="rCompProv()"><option value="">Todos</option></select></div>
+      <div class="fg">
+        <label>Producto</label>
+        <select id="fCPP" multiple onchange="rCompProv()" style="border:1px solid #ddd;border-radius:6px;padding:5px 8px;font-size:12px;min-width:200px;min-height:80px"></select>
+        <div class="hint">Ctrl+click para varios</div>
+      </div>
+    </div>
+    <div class="cards" id="cCompProv"></div>
+    <div class="tabla-wrap"><div class="tt">Compras por proveedor <span>CAT 1 — Insumos usados y presupuestados</span></div><div class="ts"><table id="tCompProv"></table></div></div>
+  </div>
+
+  <!-- PRODUCCIÓN -->
+  <div id="tab-produccion" class="tab-content">
+    <div class="filtros">
+      <span class="filtros-titulo">Filtros</span>
+      <div class="fg"><label>Empresa</label><select id="fProdEmp" onchange="rProd()"><option value="">Todas</option></select></div>
+      <div class="fg"><label>Cultivo</label><select id="fProdCult" onchange="rProd()"><option value="">Todos</option></select></div>
+      <div class="fg"><label>Campo</label><select id="fProdCampo" onchange="rProd()"><option value="">Todos</option></select></div>
+    </div>
+    <div class="cards" id="cProd"></div>
+    <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+      <div class="chart-wrap" style="flex:1;min-width:300px"><div class="ct">Producción total por cultivo (tn)</div><canvas id="chProdCult"></canvas></div>
+      <div class="chart-wrap" style="flex:1;min-width:300px"><div class="ct">Rinde promedio por cultivo (tn/ha)</div><canvas id="chRindeCult"></canvas></div>
+    </div>
+    <div class="tabla-wrap"><div class="tt">Ranking de rindes por empresa y cultivo <span>click columna para ordenar</span></div><div class="ts"><table id="tProdEmp"></table></div></div>
+    <div class="tabla-wrap" style="margin-top:14px"><div class="tt">Detalle por lote <span>click columna para ordenar</span></div><div class="ts"><table id="tProdLote"></table></div></div>
   </div>
 
   <!-- ALERTAS -->
@@ -446,6 +481,8 @@ function cargarArchivo(inp){
       try{rIns();}catch(e){console.error('rIns',e);}
       try{rComp();}catch(e){console.error('rComp',e);}
       try{rAlt();}catch(e){console.error('rAlt',e);}
+      try{rCompProv();}catch(e){console.error('rCompProv',e);}
+      try{rProd();}catch(e){console.error('rProd',e);}
       try{rAnalisis();}catch(e){console.error('rAnalisis',e);}
 
     }catch(err){
@@ -478,6 +515,27 @@ function poblar(){
     s.innerHTML=primerOpt+arr.map(v=>`<option value="${v}">${v}</option>`).join('');
   };
   fs('fCC',C); fs('fLL',L); fs('fIT',T); fs('fIP',P); fs('fCompT',T); fs('fCompP',P); fs('fAE',E);
+
+  // Filtros Compras x Proveedor
+  const TP=[...new Set(D.filter(d=>d.CAT===1).map(d=>d['TIPO']).filter(Boolean))].sort();
+  const PROVS=[...new Set(D.filter(d=>d.CAT===1).map(d=>d['PROVEEDOR']).filter(Boolean))].sort();
+  const PRODS_PROV=[...new Set(D.filter(d=>d.CAT===1&&d._q>0).map(d=>d['PRODUCT/LABOR']).filter(Boolean))].sort().slice(0,150);
+  fs('fCPT',TP);
+  const selProv=document.getElementById('fCPProv');
+  if(selProv) selProv.innerHTML='<option value="">Todos</option>'+PROVS.map(v=>`<option value="${v}">${v}</option>`).join('');
+  const selCPP=document.getElementById('fCPP');
+  if(selCPP) selCPP.innerHTML=PRODS_PROV.map(v=>`<option value="${v}">${v}</option>`).join('');
+
+  // Filtros Producción
+  const PROD_EMPS=[...new Set(D.filter(d=>d.CAT===1&&d['TIPO']==='COSECHA'&&d['R/P']==='R').map(d=>d._e).filter(Boolean))].sort();
+  const PROD_CULTS=[...new Set(D.filter(d=>d.CAT===1&&d['TIPO']==='COSECHA'&&d['R/P']==='R').map(d=>d['CULTIVO']).filter(Boolean))].sort();
+  const PROD_CAMPOS=[...new Set(D.filter(d=>d.CAT===1&&d['TIPO']==='COSECHA'&&d['R/P']==='R').map(d=>d['CAMPO']).filter(Boolean))].sort();
+  const selPE=document.getElementById('fProdEmp');
+  if(selPE) selPE.innerHTML='<option value="">Todas</option>'+PROD_EMPS.map(v=>`<option value="${v}">${v}</option>`).join('');
+  const selPC=document.getElementById('fProdCult');
+  if(selPC) selPC.innerHTML='<option value="">Todos</option>'+PROD_CULTS.map(v=>`<option value="${v}">${nc(v)}</option>`).join('');
+  const selPCa=document.getElementById('fProdCampo');
+  if(selPCa) selPCa.innerHTML='<option value="">Todos</option>'+PROD_CAMPOS.map(v=>`<option value="${v}">${v}</option>`).join('');
 }
 
 function setActSup(act) {
@@ -922,15 +980,32 @@ function rIns(){
   if(ti) b=b.filter(d=>d['TIPO']===ti);
   if(prs.length) b=b.filter(d=>prs.includes(d['PRODUCT/LABOR']));
 
+  // Calcular precio ponderado global
+  const bConPrecio = b.filter(d=>d['U$S/UNIDAD']&&parseFloat(d['U$S/UNIDAD'])>0&&d._q>0);
+  const totQ = bConPrecio.reduce((s,d)=>s+d._q,0);
+  const totUsd = bConPrecio.reduce((s,d)=>s+fv(d['U$S TOT']),0);
+  const precPond = totQ>0 ? totUsd/totQ : 0;
+  const unidad = b.length>0 ? (b[0]['UNIDAD']||'unid') : 'unid';
+  const nomProd = prs.length===1 ? prs[0] : (b.length>0?b[0]['TIPO']||'Insumos':'Insumos');
+
+  const filaPond = `<div style="background:#e8f4fb;border-radius:8px;padding:12px 18px;margin-bottom:14px;display:flex;gap:24px;flex-wrap:wrap;align-items:center">
+    <div style="font-size:12px;font-weight:700;color:#1a5276">💰 Precio ponderado</div>
+    <div><span style="font-size:11px;color:#888">Producto</span><br><b style="font-size:13px">${nomProd}</b></div>
+    <div><span style="font-size:11px;color:#888">Precio ponderado</span><br><b style="font-size:18px;color:#1a5276">${precPond>0?'U$S '+precPond.toFixed(2)+'/'+unidad:'-'}</b></div>
+    <div><span style="font-size:11px;color:#888">Total comprado</span><br><b style="font-size:13px">${fn(totQ)} ${unidad}</b></div>
+    <div><span style="font-size:11px;color:#888">Total U$S</span><br><b style="font-size:13px">${fu(totUsd)}</b></div>
+    <div><span style="font-size:11px;color:#888">Registros</span><br><b style="font-size:13px">${bConPrecio.length}</b></div>
+  </div>`;
+
   if(prs.length===1){
     // Un solo producto: top 10 baratas/caras
     const conPrecio=b.filter(d=>d['U$S/UNIDAD']&&parseFloat(d['U$S/UNIDAD'])>0);
     const sorted=[...conPrecio].sort((a,b2)=>parseFloat(a['U$S/UNIDAD'])-parseFloat(b2['U$S/UNIDAD']));
-    document.getElementById('tIns').innerHTML=
+    document.getElementById('tIns').innerHTML= filaPond +
       tablaTopIns(sorted.slice(0,10),'🟢 10 compras más baratas (U$S/unidad)','#27ae60')+
       tablaTopIns(sorted.slice(-10).reverse(),'🔴 10 compras más caras (U$S/unidad)','#e74c3c');
   } else {
-    // Varios o ninguno: tabla general
+    // Varios o ninguno: tabla general con fila ponderado arriba
     const th='<tr><th>Producto</th><th>Tipo</th><th>Proveedor</th><th>Empresa</th><th>Cantidad</th><th>Unidad</th><th>U$S/Unidad</th><th>Total U$S</th></tr>';
     const tb=b.slice(0,300).map(d=>`<tr>
       <td>${d['PRODUCT/LABOR']||'-'}</td><td>${d['TIPO']||'-'}</td>
@@ -939,7 +1014,7 @@ function rIns(){
       <td>${d['U$S/UNIDAD']?parseFloat(d['U$S/UNIDAD']).toFixed(2):'-'}</td>
       <td>${fu(fv(d['U$S TOT']))}</td>
     </tr>`).join('');
-    document.getElementById('tIns').innerHTML=`<div class="tabla-wrap"><div class="ts"><table>${th+tb}</table></div></div>`;
+    document.getElementById('tIns').innerHTML= filaPond + `<div class="tabla-wrap"><div class="ts"><table>${th+tb}</table></div></div>`;
   }
 }
 
@@ -990,6 +1065,188 @@ function rComp(){
     return `<tr><td><b>${p}</b></td><td>${v.ti}</td><td>${v.un}</td><td>${fn(v.uQ)}</td><td>${fn(v.pQ)}</td><td>${fn(tot)}</td><td>${fu(usdTot)}</td><td>${fn(v.cQ)}</td><td><span class="badge ${bc}">${df>=0?'+':''}${fn(df)}</span></td></tr>`;
   }).join('');
   document.getElementById('tComp').innerHTML=thead+tsub+tbody;
+}
+
+// ── COMPRAS x PROVEEDOR ──
+function rCompProv(){
+  const ti=document.getElementById('fCPT').value;
+  const prov=document.getElementById('fCPProv').value;
+  const prs=[...document.getElementById('fCPP').selectedOptions].map(o=>o.value).filter(Boolean);
+
+  let b=D.filter(d=>d.CAT===1&&(d['R/P']==='R'||d['R/P']==='P'));
+  if(ti) b=b.filter(d=>d['TIPO']===ti);
+  if(prov) b=b.filter(d=>d['PROVEEDOR']===prov);
+  if(prs.length) b=b.filter(d=>prs.includes(d['PRODUCT/LABOR']));
+
+  // Cards resumen
+  const totUsd=b.reduce((s,d)=>s+d._u,0);
+  const provs=[...new Set(b.map(d=>d['PROVEEDOR']).filter(Boolean))];
+  const prods=[...new Set(b.map(d=>d['PRODUCT/LABOR']).filter(Boolean))];
+  document.getElementById('cCompProv').innerHTML=`
+    <div class="card"><div class="lbl">Total U$S</div><div class="val">${fu(totUsd)}</div></div>
+    <div class="card"><div class="lbl">Proveedores</div><div class="val">${provs.length}</div></div>
+    <div class="card"><div class="lbl">Productos</div><div class="val">${prods.length}</div></div>
+    <div class="card"><div class="lbl">Registros</div><div class="val">${fn(b.length)}</div></div>
+  `;
+
+  // Agrupar por proveedor
+  const P={};
+  b.forEach(d=>{
+    const pr=d['PROVEEDOR']||'Sin proveedor';
+    if(!P[pr]) P[pr]={usd:0,q:0,prods:new Set(),emps:new Set(),rows:[]};
+    P[pr].usd+=d._u; P[pr].q+=d._q;
+    P[pr].prods.add(d['PRODUCT/LABOR']||'');
+    P[pr].emps.add(d._e||'');
+    P[pr].rows.push(d);
+  });
+
+  const sorted=Object.entries(P).sort((a,b2)=>b2[1].usd-a[1].usd);
+
+  const th='<tr><th onclick="sortCompProv('prov')">Proveedor</th><th onclick="sortCompProv('usd')">Total U$S</th><th onclick="sortCompProv('q')">Cantidad total</th><th>Productos</th><th>Empresas</th></tr>';
+  const subtot=`<tr style="background:#e8f4fb;font-weight:700">
+    <td>TOTAL (${sorted.length} proveedores)</td>
+    <td>${fu(totUsd)}</td><td>—</td>
+    <td>${prods.length} productos</td>
+    <td>${[...new Set(b.map(d=>d._e).filter(Boolean))].length} empresas</td>
+  </tr>`;
+  const tb=sorted.map(([pr,v])=>`<tr>
+    <td><b>${pr}</b></td>
+    <td>${fu(v.usd)}</td>
+    <td>${fn(v.q)}</td>
+    <td style="font-size:11px;color:#666">${[...v.prods].filter(Boolean).slice(0,3).join(', ')}${v.prods.size>3?' +'+( v.prods.size-3)+' más':''}</td>
+    <td style="font-size:11px;color:#666">${[...v.emps].filter(Boolean).join(', ')}</td>
+  </tr>`).join('');
+
+  document.getElementById('tCompProv').innerHTML=th+subtot+tb;
+}
+
+let _sortCompProv={col:'usd',dir:-1};
+function sortCompProv(col){
+  _sortCompProv={col,dir:_sortCompProv.col===col?_sortCompProv.dir*-1:-1};
+  rCompProv();
+}
+
+// ── PRODUCCIÓN ──
+let _sortProd={col:'tn',dir:-1};
+let _sortProdLote={col:'tn',dir:-1};
+
+function rProd(){
+  const emp=document.getElementById('fProdEmp').value;
+  const cult=document.getElementById('fProdCult').value;
+  const campo=document.getElementById('fProdCampo').value;
+
+  let b=D.filter(d=>d.CAT===1&&d['TIPO']==='COSECHA'&&d['R/P']==='R');
+  if(emp) b=b.filter(d=>d._e===emp);
+  if(cult) b=b.filter(d=>d['CULTIVO']===cult);
+  if(campo) b=b.filter(d=>d['CAMPO']===campo);
+
+  // Cards resumen
+  const totTn=b.reduce((s,d)=>s+fv(d['TOT UNIDADES']),0);
+  const totHa=b.reduce((s,d)=>s+d._s,0);
+  const rindeProm=totHa>0?totTn/totHa:0;
+  const empsSet=[...new Set(b.map(d=>d._e).filter(Boolean))];
+  document.getElementById('cProd').innerHTML=`
+    <div class="card verde"><div class="lbl">Toneladas totales</div><div class="val">${fn(Math.round(totTn))}</div><div class="sub">tn cosechadas</div></div>
+    <div class="card"><div class="lbl">Superficie cosechada</div><div class="val">${fn(Math.round(totHa))}</div><div class="sub">hectáreas</div></div>
+    <div class="card"><div class="lbl">Rinde promedio</div><div class="val">${rindeProm>0?rindeProm.toFixed(2):'-'}</div><div class="sub">tn/ha</div></div>
+    <div class="card"><div class="lbl">Empresas</div><div class="val">${empsSet.length}</div></div>
+  `;
+
+  // Gráfico producción por cultivo
+  const porCult={};
+  b.forEach(d=>{
+    const c=d['CULTIVO']||'?';
+    if(!porCult[c]) porCult[c]={tn:0,ha:0};
+    porCult[c].tn+=fv(d['TOT UNIDADES']);
+    porCult[c].ha+=d._s;
+  });
+  const cultSorted=Object.entries(porCult).sort((a,b2)=>b2[1].tn-a[1].tn);
+
+  dc('chProdCult');
+  if(cultSorted.length){
+    new Chart(document.getElementById('chProdCult'),{
+      type:'bar',
+      data:{
+        labels:cultSorted.map(([c])=>nc(c)),
+        datasets:[{label:'Toneladas',data:cultSorted.map(([,v])=>Math.round(v.tn)),
+          backgroundColor:cultSorted.map(([c],i)=>cultColor(c,i)+'cc')}]
+      },
+      options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+    });
+    CH['chProdCult']=true;
+  }
+
+  dc('chRindeCult');
+  if(cultSorted.length){
+    const rindes=cultSorted.map(([,v])=>v.ha>0?parseFloat((v.tn/v.ha).toFixed(2)):0);
+    new Chart(document.getElementById('chRindeCult'),{
+      type:'bar',
+      data:{
+        labels:cultSorted.map(([c])=>nc(c)),
+        datasets:[{label:'tn/ha',data:rindes,
+          backgroundColor:cultSorted.map(([c],i)=>cultColor(c,i)+'cc')}]
+      },
+      options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+    });
+    CH['chRindeCult']=true;
+  }
+
+  // Tabla ranking por empresa y cultivo
+  const porEmpCult={};
+  b.forEach(d=>{
+    const key=d._e+'||'+(d['CULTIVO']||'?');
+    if(!porEmpCult[key]) porEmpCult[key]={emp:d._e,cult:d['CULTIVO']||'?',tn:0,ha:0};
+    porEmpCult[key].tn+=fv(d['TOT UNIDADES']);
+    porEmpCult[key].ha+=d._s;
+  });
+  const empCultArr=Object.values(porEmpCult).map(v=>({...v,rinde:v.ha>0?v.tn/v.ha:0}))
+    .sort((a,b2)=>b2.rinde-a.rinde);
+
+  const thEC='<tr><th>Empresa</th><th>Cultivo</th><th onclick="sortProdEmp('ha')">Ha ▾</th><th onclick="sortProdEmp('tn')">Toneladas ▾</th><th onclick="sortProdEmp('rinde')">Rinde tn/ha ▾</th></tr>';
+  const tbEC=empCultArr.map((v,i)=>{
+    const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+    return `<tr>
+      <td>${v.emp}</td>
+      <td>${nc(v.cult)}</td>
+      <td>${fn(Math.round(v.ha))}</td>
+      <td>${fn(Math.round(v.tn))}</td>
+      <td><b>${medal} ${v.rinde>0?v.rinde.toFixed(2):'-'} tn/ha</b></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('tProdEmp').innerHTML=thEC+tbEC;
+
+  // Tabla detalle por lote
+  const porLote={};
+  b.forEach(d=>{
+    const key=d._e+'||'+(d['CAMPO']||'?')+'||'+(d['IDLOTE']||'?')+'||'+(d['CULTIVO']||'?');
+    if(!porLote[key]) porLote[key]={
+      emp:d._e,campo:d['CAMPO']||'-',lote:d['IDLOTE']||'-',
+      cult:d['CULTIVO']||'?',resp:d['RESPONSABLE']||'-',tn:0,ha:0
+    };
+    porLote[key].tn+=fv(d['TOT UNIDADES']);
+    porLote[key].ha+=d._s;
+  });
+  const loteArr=Object.values(porLote).map(v=>({...v,rinde:v.ha>0?v.tn/v.ha:0}))
+    .sort((a,b2)=>b2.rinde-a.rinde);
+
+  const thL='<tr><th>Empresa</th><th>Campo</th><th>Lote</th><th>Cultivo</th><th>Responsable</th><th onclick="sortProdLote('ha')">Ha ▾</th><th onclick="sortProdLote('tn')">Tn ▾</th><th onclick="sortProdLote('rinde')">Rinde ▾</th></tr>';
+  const tbL=loteArr.map(v=>`<tr>
+    <td>${v.emp}</td><td>${v.campo}</td><td>${v.lote}</td>
+    <td>${nc(v.cult)}</td><td>${v.resp}</td>
+    <td>${fn(Math.round(v.ha))}</td>
+    <td>${fn(Math.round(v.tn))}</td>
+    <td><b>${v.rinde>0?v.rinde.toFixed(2):'-'} tn/ha</b></td>
+  </tr>`).join('');
+  document.getElementById('tProdLote').innerHTML=thL+tbL;
+}
+
+function sortProdEmp(col){
+  _sortProd={col,dir:_sortProd.col===col?_sortProd.dir*-1:-1};
+  rProd();
+}
+function sortProdLote(col){
+  _sortProdLote={col,dir:_sortProdLote.col===col?_sortProdLote.dir*-1:-1};
+  rProd();
 }
 
 // ── ALERTAS ──
